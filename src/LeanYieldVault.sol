@@ -51,6 +51,7 @@ contract LeanYieldVault is LeanVaultBase {
 
     error StrategyAssetMismatch();
     error InvalidUnlockPeriod();
+    error StrategyMintedNothing();
 
     constructor(
         address asset_,
@@ -134,10 +135,13 @@ contract LeanYieldVault is LeanVaultBase {
     //////////////////////////////////////////////////////////////*/
 
     function _afterDeposit(uint256 assets) internal override {
-        strategy.deposit(assets, address(this));
+        // A strategy that takes the assets and mints nothing would swallow the deposit.
+        if (strategy.deposit(assets, address(this)) == 0) revert StrategyMintedNothing();
     }
 
     function _sendAssets(uint256 assets, address receiver) internal override {
+        // The strategy pays `receiver` directly; how many strategy shares it burned is not needed here.
+        // forge-lint: disable-next-line(unused-return)
         strategy.withdraw(assets, receiver, address(this));
     }
 

@@ -94,17 +94,22 @@ contract LeanYieldVaultTest is Test {
         assertEq(vault.totalAssets(), 100e18, "no gain credited at harvest time");
         assertApproxEqAbs(vault.lockedProfit(), 10e18, WEI);
 
-        vm.warp(block.timestamp + PERIOD / 4);
+        uint256 t = block.timestamp;
+        t += PERIOD / 4;
+        vm.warp(t);
         assertApproxEqAbs(vault.totalAssets(), 102.5e18, WEI, "a quarter of the gain after a quarter period");
 
-        vm.warp(block.timestamp + PERIOD / 4);
+        t += PERIOD / 4;
+        vm.warp(t);
         assertApproxEqAbs(vault.totalAssets(), 105e18, WEI, "half after half");
 
-        vm.warp(block.timestamp + PERIOD / 2);
+        t += PERIOD / 2;
+        vm.warp(t);
         assertApproxEqAbs(vault.totalAssets(), 110e18, WEI, "all of it at the end");
         assertEq(vault.lockedProfit(), 0);
 
-        vm.warp(block.timestamp + 365 days);
+        t += 365 days;
+        vm.warp(t);
         assertApproxEqAbs(vault.totalAssets(), 110e18, WEI, "and it stays there");
     }
 
@@ -115,8 +120,8 @@ contract LeanYieldVaultTest is Test {
         vm.prank(alice);
         vault.deposit(100e18, alice);
         _gain(gain);
-        vault.harvest();
         uint256 start = block.timestamp;
+        vault.harvest();
 
         vm.warp(start + t1);
         uint256 p1 = vault.convertToAssets(1e18);
@@ -129,13 +134,16 @@ contract LeanYieldVaultTest is Test {
         vm.prank(alice);
         vault.deposit(100e18, alice);
         _gain(10e18);
+        uint256 t = block.timestamp;
         vault.harvest();
-        vm.warp(block.timestamp + PERIOD / 2); // 5e18 still locked
+        t += PERIOD / 2; // 5e18 still locked
+        vm.warp(t);
         _gain(4e18);
         vault.harvest();
         assertApproxEqAbs(vault.lockedProfit(), 9e18, WEI, "5 remaining plus 4 new");
         assertApproxEqAbs(vault.totalAssets(), 105e18, WEI, "nothing new credited at harvest time");
-        vm.warp(block.timestamp + PERIOD);
+        t += PERIOD;
+        vm.warp(t);
         assertApproxEqAbs(vault.totalAssets(), 114e18, WEI);
     }
 
@@ -163,7 +171,8 @@ contract LeanYieldVaultTest is Test {
         vault.harvest();
         assertEq(vault.totalAssets(), 100e18, "price untouched, locked profit absorbed the loss");
         assertApproxEqAbs(vault.lockedProfit(), 6e18, WEI);
-        vm.warp(block.timestamp + PERIOD);
+        uint256 t = block.timestamp + PERIOD;
+        vm.warp(t);
         assertApproxEqAbs(vault.totalAssets(), 106e18, WEI);
     }
 
