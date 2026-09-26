@@ -11,7 +11,7 @@ import {MockERC20} from "./mocks/MockERC20.sol";
 contract LeanVaultStd is ERC4626Test {
     uint256 constant CAP = 1e27;
 
-    function setUp() public override {
+    function setUp() public virtual override {
         _underlying_ = address(new MockERC20("Mock Token", "MOCK", 18));
         _vault_ = address(new LeanVault(_underlying_, "Lean Vault", "lVAULT"));
         _delta_ = 0;
@@ -38,7 +38,7 @@ contract LeanVaultStd is ERC4626Test {
         setUpYield(init);
     }
 
-    function setUpYield(Init memory init) public override {
+    function setUpYield(Init memory init) public virtual override {
         if (init.yield > 0) {
             uint256 gain = bound(uint256(init.yield), 1, CAP);
             // forge-lint: disable-next-line(unsafe-typecast)
