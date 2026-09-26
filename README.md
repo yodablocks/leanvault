@@ -151,6 +151,8 @@ The model called both "hold" with high confidence and rated their health with lo
 | Adpend USDC | Ethereum | [`0x5555…5555`](https://etherscan.io/address/0x55555815a5595991C3A0Ff119B59AEF6C8B55555) | 368.5M | watch |
 | 1337 USDC | Ethereum | [`0x9464…96c1`](https://etherscan.io/address/0x94643e86aa5E38DDAc6c7791C1297f4E40cD96c1) | 196.5M | watch |
 
+**Then thirty days of history from DefiLlama.** The judgments on the first pass were made on minutes of on-chain data, and it showed: health scores hovered around "watch" with low confidence for every legitimate vault. DefiLlama's yields index lists 20 of the 23 with a 30-day mean yield, its volatility and an outlier flag, matched once by TVL and pinned by pool id. With that in the state, the legitimate vaults settled between healthy and watch, the two planted ones still exit, and the bottom of the real set became the two that deserve it: a vault trading at 0.83 per share and one whose yield volatility is ten times its peers'. The three vaults the index does not list are shown to the model as exactly that.
+
 **What it is not.** It does not predict yields, it sees only the fields it is shown, and it has no authority. The intended path from here is a schedule of hourly passes for weeks, a comparison of its log with what a human curator would have done, and only then the allocator key, inside the caps and the window limit the contract enforces regardless.
 
 **The same judgments face users too.** Matched against a stated horizon and tolerance, the per-strategy health scores become a recommendation of which vault fits, publishable as a signed statement anyone can verify. Same engine, different consumer.

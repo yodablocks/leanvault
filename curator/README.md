@@ -9,7 +9,8 @@ Zero dependencies. Bun runs the TypeScript directly; the chain is read through p
 1. **Observe.** For each configured strategy, read `name`, `asset`, `totalAssets`, `convertToAssets(1e18)`, `maxWithdraw` and `fee` and append a snapshot to `data/snapshots.jsonl`. From the history: realized APY, TVL change, worst single-step price move.
 2. **Judge.** Show Jev one strategy's numbers as named fields and ask three narrow questions: is the vault under stress (a probability), how healthy is it on four described levels (a score), and which of hold, reduce, exit fits (a choice). Answers come back as probabilities with confidence; nothing is prose.
 3. **Allocate.** Deterministic code turns judgments into weights, clips targets by the caps, and lists the moves the allocator would submit within the 24-hour limit. Exit signals, high stress and low confidence are escalated to a person instead of executed.
-4. **Log.** Everything is appended under `data/`. In shadow mode nothing is ever sent to a chain.
+4. **Enrich.** [DefiLlama's yields index](https://yields.llama.fi/pools) supplies what the curator lacks on day one: each vault's current and 30-day mean yield, its yield volatility, its outlier flag, and whether the index lists the vault at all. Pools are matched once by chain, project and TVL and pinned by their stable pool id in `src/config.ts`. A vault that a major aggregator does not list is shown to the model as exactly that. If the index is unreachable the fields are omitted, not reported as "not listed".
+5. **Log.** Everything is appended under `data/`. In shadow mode nothing is ever sent to a chain.
 
 ## Run
 
