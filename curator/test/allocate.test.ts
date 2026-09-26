@@ -8,7 +8,7 @@ const cfg: CuratorConfig = {
   strategies: [{ label: "a", address: "0x1", cap: 800 }, { label: "b", address: "0x2", cap: 800 }],
   currentAllocation: { a: 500, b: 500 },
   rebalanceLimit: 150,
-  thresholds: { stressExit: 0.7, minConfidence: 0.6 },
+  thresholds: { stressExit: 0.7, minConfidence: 0.6, minMoveFraction: 0.05 },
 };
 
 function j(label: string, o: Partial<{ stress: number; risk: number; action: "hold" | "reduce" | "exit"; conf: number }> = {}): Judgment {
@@ -51,10 +51,23 @@ describe("plan", () => {
     expect(p.escalations.length).toBeGreaterThan(0);
     expect(p.escalations.join()).toContain("a: model chose exit");
   });
-  test("low confidence escalates without changing the arithmetic", () => {
+  test("low confidence escalates and marks any moves as needing approval", () => {
     const p = plan(cfg, [j("a", { conf: 0.3 }), j("b")], { a: 0.05, b: 0.05 });
     expect(p.escalations.some((e) => e.includes("confidence"))).toBe(true);
+    expect(p.needsApproval).toBe(true);
     expect(p.moves).toEqual([]);
+  });
+  test("differences inside the dead band produce no move", () => {
+    // risk 0.2 vs 0.35 on a 3-level scale is a few percent of weight: noise
+    const p = plan(cfg, [j("a", { risk: 0.2 }), j("b", { risk: 0.35 })], { a: 0.05, b: 0.05 });
+    expect(p.moves).toEqual([]);
+    expect(p.proposals.map((x) => x.target)).toEqual([500, 500]);
+    expect(p.needsApproval).toBe(false);
+  });
+  test("a clear difference still moves, outside the dead band", () => {
+    const p = plan(cfg, [j("a", { risk: 0 }), j("b", { risk: 2.4 })], { a: 0.05, b: 0.05 });
+    expect(p.moves.length).toBe(1);
+    expect(p.moves[0]!.from).toBe("b");
   });
   test("caps clip targets instead of forcing funds into the other strategy", () => {
     const tight: CuratorConfig = { ...cfg, strategies: [{ label: "a", address: "0x1", cap: 300 }, { label: "b", address: "0x2", cap: 300 }] };

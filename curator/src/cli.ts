@@ -51,7 +51,7 @@ if (cmd === "observe") {
     await append("proposals.jsonl", { at: Date.now(), plan: p });
     console.log("\nproposed allocation:");
     for (const q of p.proposals) console.log(`  ${q.label.padEnd(22)} ${money(q.current).padStart(10)} -> ${money(q.target).padStart(10)}  (w ${q.weight.toFixed(3)})`);
-    console.log(p.moves.length ? "moves this window:" : "moves this window: none");
+    console.log(p.moves.length ? (p.needsApproval ? "moves this window (held for approval):" : "moves this window:") : "moves this window: none");
     for (const m of p.moves) console.log(`  ${m.from} -> ${m.to}: ${money(m.assets)}`);
     if (p.escalations.length) { console.log("escalate to a person:"); for (const e of p.escalations) console.log("  " + e); }
   }

@@ -19,6 +19,8 @@ export interface Plan {
   /** Moves the allocator would submit now, bounded by the window limit. */
   moves: { from: string; to: string; assets: number }[];
   escalations: string[];
+  /** True when any escalation exists: the moves are a recommendation for a person, not an action. */
+  needsApproval: boolean;
 }
 
 const TOP = RISK_LEVELS.length - 1;
@@ -61,6 +63,16 @@ export function plan(
     return { label: j.label, current, target, delta: target - current, weight: weights[j.label] ?? 0, escalate: esc };
   });
 
+  // Dead band: small differences between low-precision judgments are noise,
+  // and every move costs gas and leaks intent. Below the band, stay put.
+  const band = total * cfg.thresholds.minMoveFraction;
+  for (const p of proposals) {
+    if (Math.abs(p.delta) < band) {
+      p.target = p.current;
+      p.delta = 0;
+    }
+  }
+
   // Turn deltas into moves from over-allocated to under-allocated, within the window limit.
   let budget = cfg.rebalanceLimit;
   const moves: Plan["moves"] = [];
@@ -75,5 +87,5 @@ export function plan(
       src.left -= amount; dst.left -= amount; budget -= amount;
     }
   }
-  return { proposals, moves, escalations };
+  return { proposals, moves, escalations, needsApproval: escalations.length > 0 };
 }

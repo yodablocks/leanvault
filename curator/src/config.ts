@@ -19,7 +19,12 @@ export interface CuratorConfig {
   /** Assets the allocator may move per 24-hour window, whole units. */
   rebalanceLimit: number;
   /** Judgment thresholds; see allocate.ts. */
-  thresholds: { stressExit: number; minConfidence: number };
+  thresholds: {
+    stressExit: number;
+    minConfidence: number;
+    /** Ignore target deltas smaller than this fraction of total allocation. */
+    minMoveFraction: number;
+  };
 }
 
 export const config: CuratorConfig = {
@@ -31,5 +36,5 @@ export const config: CuratorConfig = {
   ],
   currentAllocation: { "steakhouse-usdc": 500_000, "gauntlet-usdc-prime": 500_000 },
   rebalanceLimit: 200_000,
-  thresholds: { stressExit: 0.7, minConfidence: 0.6 },
+  thresholds: { stressExit: 0.7, minConfidence: 0.6, minMoveFraction: 0.05 },
 };
