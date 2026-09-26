@@ -5,3 +5,8 @@ broadcast/
 anvil-zksync.log
 .env
 .DS_Store
+
+# curator
+curator/node_modules/
+curator/data/
+curator/.env
