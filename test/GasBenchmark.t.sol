@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {LeanVault} from "../src/LeanVault.sol";
 import {LeanYieldVault} from "../src/LeanYieldVault.sol";
+import {LeanAllocatorVault} from "../src/LeanAllocatorVault.sol";
 import {MockStrategy} from "./mocks/MockStrategy.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 
@@ -16,6 +17,8 @@ contract GasBenchmark is Test {
     MockStrategy strategy;
     LeanVault idle;
     LeanYieldVault yieldVault;
+    LeanAllocatorVault alloc;
+    MockStrategy strategy2;
     address alice = address(0x1);
 
     function setUp() public {
@@ -23,10 +26,18 @@ contract GasBenchmark is Test {
         strategy = new MockStrategy(address(asset));
         idle = new LeanVault(address(asset), "Lean Vault", "lVAULT");
         yieldVault = new LeanYieldVault(address(asset), address(strategy), "Lean Yield Vault", "lyVAULT", 1 days);
+        strategy2 = new MockStrategy(address(asset));
+        alloc = new LeanAllocatorVault(address(asset), "Lean Allocator Vault", "laVAULT", 1 days, 1 hours);
+        alloc.proposeStrategy(address(strategy), type(uint96).max);
+        alloc.proposeStrategy(address(strategy2), type(uint96).max);
+        vm.warp(block.timestamp + 1 hours);
+        alloc.acceptStrategy(address(strategy));
+        alloc.acceptStrategy(address(strategy2));
         asset.mint(alice, 1_000_000e18);
         vm.startPrank(alice);
         asset.approve(address(idle), type(uint256).max);
         asset.approve(address(yieldVault), type(uint256).max);
+        asset.approve(address(alloc), type(uint256).max);
         vm.stopPrank();
     }
 
@@ -65,5 +76,24 @@ contract GasBenchmark is Test {
         vm.prank(alice); yieldVault.deposit(10000e18, alice);
         asset.mint(address(strategy), 100e18);
         yieldVault.harvest();
+    }
+
+    function test_gas_alloc_first_deposit() public { vm.prank(alice); alloc.deposit(10000e18, alice); }
+    function test_gas_alloc_subsequent_deposit() public {
+        vm.startPrank(alice); alloc.deposit(10000e18, alice); alloc.deposit(5000e18, alice); vm.stopPrank();
+    }
+    function test_gas_alloc_withdraw() public {
+        vm.startPrank(alice); alloc.deposit(10000e18, alice); alloc.withdraw(1000e18, alice, alice); vm.stopPrank();
+    }
+    function test_gas_alloc_redeem() public {
+        vm.startPrank(alice); alloc.deposit(10000e18, alice); alloc.redeem(1000e18, alice, alice); vm.stopPrank();
+    }
+    function test_gas_alloc_convertToShares() public {
+        vm.prank(alice); alloc.deposit(10000e18, alice); alloc.convertToShares(1000e18);
+    }
+    function test_gas_alloc_harvest() public {
+        vm.prank(alice); alloc.deposit(10000e18, alice);
+        asset.mint(address(strategy), 100e18);
+        alloc.harvest();
     }
 }

@@ -27,4 +27,13 @@ fuzz = { runs = 512 }
 # before the asset transfer, which is the last statement of each function, so
 # the rule is excluded rather than the code reordered against the CEI pattern.
 [lint]
-exclude_lints = ["reentrancy-events"]
+exclude_lints = [
+  "reentrancy-events",
+  # Timelocks and rebalance windows compare block.timestamp by design; they are
+  # hours to days long, far beyond what a validator can shift.
+  "block-timestamp",
+  # The allocator vault loops over its allowlisted strategies for the withdrawal
+  # queue and the harvest sum. The list is owner-controlled and capped at
+  # MAX_STRATEGIES, so the loops are bounded.
+  "calls-loop",
+]
