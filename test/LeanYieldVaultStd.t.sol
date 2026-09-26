@@ -14,7 +14,7 @@ contract LeanYieldVaultStd is LeanVaultStd {
     MockStrategy public strategy;
     uint256 constant PERIOD = 1 days;
 
-    function setUp() public override {
+    function setUp() public virtual override {
         _underlying_ = address(new MockERC20("Mock Token", "MOCK", 18));
         strategy = new MockStrategy(_underlying_);
         _vault_ = address(new LeanYieldVault(_underlying_, address(strategy), "Lean Yield Vault", "lyVAULT", PERIOD));
@@ -23,7 +23,7 @@ contract LeanYieldVaultStd is LeanVaultStd {
         _unlimitedAmount = false;
     }
 
-    function setUpYield(Init memory init) public override {
+    function setUpYield(Init memory init) public virtual override {
         if (init.yield == 0) return;
         if (init.yield > 0) {
             uint256 gain = bound(uint256(init.yield), 1, CAP);
