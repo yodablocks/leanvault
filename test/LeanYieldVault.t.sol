@@ -20,6 +20,8 @@ contract LeanYieldVaultTest is Test {
     address bob = address(0xB0B);
     address attacker = address(0xBAD);
     uint256 constant PERIOD = 1 days;
+    // setUp warps to T0; the stream tests count time from it instead of re-reading block.timestamp.
+    uint256 constant T0 = 1_000_000;
 
     function setUp() public {
         asset = new MockERC20("Mock Token", "MOCK", 18);
@@ -94,7 +96,7 @@ contract LeanYieldVaultTest is Test {
         assertEq(vault.totalAssets(), 100e18, "no gain credited at harvest time");
         assertApproxEqAbs(vault.lockedProfit(), 10e18, WEI);
 
-        uint256 t = block.timestamp;
+        uint256 t = T0;
         t += PERIOD / 4;
         vm.warp(t);
         assertApproxEqAbs(vault.totalAssets(), 102.5e18, WEI, "a quarter of the gain after a quarter period");
@@ -120,7 +122,7 @@ contract LeanYieldVaultTest is Test {
         vm.prank(alice);
         vault.deposit(100e18, alice);
         _gain(gain);
-        uint256 start = block.timestamp;
+        uint256 start = T0;
         vault.harvest();
 
         vm.warp(start + t1);
@@ -134,7 +136,7 @@ contract LeanYieldVaultTest is Test {
         vm.prank(alice);
         vault.deposit(100e18, alice);
         _gain(10e18);
-        uint256 t = block.timestamp;
+        uint256 t = T0;
         vault.harvest();
         t += PERIOD / 2; // 5e18 still locked
         vm.warp(t);
@@ -171,7 +173,7 @@ contract LeanYieldVaultTest is Test {
         vault.harvest();
         assertEq(vault.totalAssets(), 100e18, "price untouched, locked profit absorbed the loss");
         assertApproxEqAbs(vault.lockedProfit(), 6e18, WEI);
-        uint256 t = block.timestamp + PERIOD;
+        uint256 t = T0 + PERIOD;
         vm.warp(t);
         assertApproxEqAbs(vault.totalAssets(), 106e18, WEI);
     }
