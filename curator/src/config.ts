@@ -44,7 +44,7 @@ export const config: CuratorConfig = {
   },
   concurrency: Number(process.env.CURATOR_CONCURRENCY ?? 2),
   assetSymbol: "USDC",
-  // Twenty-three USDC vaults on Ethereum and Base. The first two are the simulated allocation;
+  // Twenty-two USDC vaults on Ethereum and Base. The first two are the simulated allocation;
   // the rest are watched and ranked. Sourced from Morpho's public API and
   // direct on-chain reads; every address is re-verified at startup. Two
   // entries near the end reported implausible numbers upstream and are here
@@ -69,7 +69,6 @@ export const config: CuratorConfig = {
     { label: "hyperithm-usdc-apex", chain: "ethereum", address: "0x777791C4d6DC2CE140D00D2828a7C93503c67777", cap: 0, llamaPool: "3d438f2e-0022-4814-80be-f626ba8fcd40" },
     { label: "clearstar-usdc-reactor", chain: "ethereum", address: "0x62fE596d59fB077c2Df736dF212E0AFfb522dC78", cap: 0, llamaPool: "05c5acfb-eb6c-40bd-865c-2015c017e953" },
     { label: "fluid-usdc", chain: "ethereum", address: "0x9Fb7b4477576Fe5B32be4C1843aFB1e55F251B33", cap: 0, llamaPool: "4438dabc-7f0c-430b-8136-2722711ae663" },
-    { label: "aave-static-usdc", chain: "ethereum", address: "0x73edDFa87C71ADdC275c2b9890f5c3a8480bC9E6", cap: 0, llamaPool: "aa70268e-4b52-42bf-a116-608b370f9501" },
     { label: "yearn-usdc-1", chain: "ethereum", address: "0xBe53A109B494E5c9f97b9Cd39Fe969BE68BF6204", cap: 0, llamaPool: "7d89af7a-24c9-4292-aa38-7c71b05fbd6d" },
     { label: "adpend-usdc", chain: "ethereum", address: "0x55555815a5595991C3A0Ff119B59AEF6C8B55555", cap: 0 },
     { label: "1337-usdc", chain: "ethereum", address: "0x94643e86aa5E38DDAc6c7791C1297f4E40cD96c1", cap: 0 },

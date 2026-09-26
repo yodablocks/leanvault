@@ -27,9 +27,9 @@ The GitHub workflow runs a pass every six hours and appends to the `shadow-log` 
 
 ## Configuration
 
-`src/config.ts` lists the strategies, 23 USDC vaults on Ethereum and Base, each with a chain, an address, the cap the allocator vault would enforce, and whether it is part of the simulated allocation or watch-only. Watch-only vaults are judged and ranked, never allocated. Then the per-window rebalance limit and three thresholds: the stress probability that forces an exit, the minimum confidence below which a judgment is escalated rather than acted on, and the dead band under which a target delta is ignored. Addresses are verified at startup against `name()` and `asset()`.
+`src/config.ts` lists the strategies, 22 USDC vaults on Ethereum and Base, each with a chain, an address, the cap the allocator vault would enforce, and whether it is part of the simulated allocation or watch-only. Watch-only vaults are judged and ranked, never allocated. Then the per-window rebalance limit and three thresholds: the stress probability that forces an exit, the minimum confidence below which a judgment is escalated rather than acted on, and the dead band under which a target delta is ignored. Addresses are verified at startup against `name()` and `asset()`.
 
-Two of the 23 reported implausible numbers upstream and are on the list on purpose, unlabeled. With the share price in the state, the model puts both at the bottom with an exit signal; without it, it ranked one of them third. What the model is shown decides what it can catch.
+Two of the 22 reported implausible numbers upstream and are on the list on purpose, unlabeled. With the share price in the state, the model puts both at the bottom with an exit signal; without it, it ranked one of them third. What the model is shown decides what it can catch.
 
 ## What this is not
 
