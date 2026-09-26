@@ -4,7 +4,7 @@ import { signals, type Snapshot } from "../src/observe";
 
 function snap(o: Partial<Snapshot>): Snapshot {
   return {
-    label: "a", address: "0x1", name: "Vault A", assetSymbol: "USDC", assetDecimals: 6,
+    label: "a", chain: "ethereum", address: "0x1", name: "Vault A", assetSymbol: "USDC", assetDecimals: 6,
     block: 1, timestamp: 0, totalAssets: 1_000_000, pricePerShare: 1.01, liquidityRatio: 0.9, fee: 0.1, ...o,
   };
 }
@@ -21,6 +21,15 @@ describe("signals", () => {
   });
   test("no apy under an hour of observation", () => {
     expect(signals([snap({ timestamp: 0 }), snap({ timestamp: 60 })]).realizedApy).toBeNull();
+  });
+});
+
+describe("buildState", () => {
+  test("flags a share price that yield could not explain", () => {
+    const sig = signals([snap({ timestamp: 0 }), snap({ timestamp: 86_400 })]);
+    expect(buildState(snap({ pricePerShare: 822 }), sig).is_price_per_share_implausible).toBe(true);
+    expect(buildState(snap({ pricePerShare: 0.83 }), sig).is_price_per_share_implausible).toBe(false);
+    expect(buildState(snap({ pricePerShare: 0.83 }), sig).is_price_per_share_below_one).toBe(true);
   });
 });
 
@@ -47,6 +56,8 @@ describe("judge", () => {
     expect(Object.keys(sent.questions)).toEqual(["stress", "risk", "action"]);
     expect(sent.questions.risk.criteria.length).toBe(questions.risk.criteria.length);
     expect(sent.state.asset).toBe("USDC");
+    expect(sent.state.price_per_share).toBe(1.01);
+    expect(sent.state.is_price_per_share_implausible).toBe(false);
     expect(j.stress).toBe(0.12);
     expect(j.risk.score).toBe(0.4);
     expect(j.action.choice).toBe("hold");

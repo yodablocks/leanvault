@@ -4,8 +4,8 @@ import type { Judgment } from "../src/judge";
 import type { CuratorConfig } from "../src/config";
 
 const cfg: CuratorConfig = {
-  rpcUrl: "", assetSymbol: "USDC",
-  strategies: [{ label: "a", address: "0x1", cap: 800 }, { label: "b", address: "0x2", cap: 800 }],
+  rpc: { ethereum: "", base: "" }, concurrency: 1, assetSymbol: "USDC",
+  strategies: [{ label: "a", chain: "ethereum", address: "0x1", cap: 800, allocate: true }, { label: "b", chain: "ethereum", address: "0x2", cap: 800, allocate: true }],
   currentAllocation: { a: 500, b: 500 },
   rebalanceLimit: 150,
   thresholds: { stressExit: 0.7, minConfidence: 0.6, minMoveFraction: 0.05 },
@@ -70,8 +70,16 @@ describe("plan", () => {
     expect(p.moves[0]!.from).toBe("b");
   });
   test("caps clip targets instead of forcing funds into the other strategy", () => {
-    const tight: CuratorConfig = { ...cfg, strategies: [{ label: "a", address: "0x1", cap: 300 }, { label: "b", address: "0x2", cap: 300 }] };
+    const tight: CuratorConfig = { ...cfg, strategies: [{ label: "a", chain: "ethereum", address: "0x1", cap: 300, allocate: true }, { label: "b", chain: "ethereum", address: "0x2", cap: 300, allocate: true }] };
     const p = plan(tight, [j("a"), j("b")], { a: 0.05, b: 0.05 });
     expect(p.proposals.map((x) => x.target)).toEqual([300, 300]);
+  });
+
+  test("watch-only strategies are ranked but never allocated", () => {
+    const watch: CuratorConfig = { ...cfg, strategies: [...cfg.strategies, { label: "c", chain: "base", address: "0x3", cap: 0 }] };
+    const p = plan(watch, [j("a"), j("b"), j("c", { risk: 0 })], { a: 0.05, b: 0.05, c: 0.09 });
+    expect(p.ranking[0]!.label).toBe("c");
+    expect(p.proposals.map((x) => x.label)).toEqual(["a", "b"]);
+    expect(p.moves).toEqual([]);
   });
 });
