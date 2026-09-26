@@ -1,6 +1,6 @@
 # leanvault
 
-**The cheapest ERC4626 accounting shell we could write in plain Solidity, and a yield vault built on it.**
+**The cheapest ERC4626 accounting shell we could write in plain Solidity, a yield vault built on it, and a multi-strategy allocator whose curator can be wrong without being able to drain it.**
 
 leanvault keeps the two totals and the pause flag in one storage slot, puts the reentrancy guard in transient storage, writes the share supply once, and replaces the first-deposit burn with a virtual share in the price formula. No assembly anywhere. Per transaction it sits within 0.2% of Solady's ERC4626 on every repeated call while carrying a pause switch and a reentrancy guard that the baseline lacks, its views cost a third as much, and on EraVM it is the cheapest of the five vaults in [erc4626-bench](https://github.com/yodablocks/erc4626-bench) on every row.
 
@@ -71,21 +71,60 @@ Per transaction, the strategy's own cost added on top of the shell:
 
 The difference on writes is the strategy's own deposit or withdrawal, which any vault of vaults pays. The difference on views is one extra slot for the stream. No fee in v1.
 
+## The allocator vault
+
+`LeanAllocatorVault` is the yield vault over several strategies, built for a curator that may be a person, a firm, or an automated agent. The point of the design is that the curator's authority is bounded on-chain, so being wrong costs yield, not principal:
+
+| | |
+|---|---|
+| **Timelocked allowlist** | The owner proposes a strategy with a cap; it becomes usable only after `timelock` (one hour to thirty days). Depositors can see a new strategy coming and leave first. Removal requires the strategy to be empty. |
+| **Caps** | Every strategy has a cap in assets. Neither deposits nor rebalances can push a strategy over it. |
+| **Allocator role** | An address the owner sets may move funds between allowlisted strategies, at most `rebalanceLimit` assets per 24-hour window. The owner can rebalance too. |
+| **One deposit target** | Deposits go to the strategy the owner designates; `maxDeposit` reflects its cap and its own limit. |
+| **Withdrawal queue** | Withdrawals drain strategies in list order until the amount is paid; `maxWithdraw` is capped by what all strategies can pay right now. |
+| **Price never reacts to a rebalance** | Deposits and withdrawals price against the last harvest plus the stream, as in the single-strategy vault. A rebalance moves funds, not the share price. `test_rebalanceDoesNotMoveThePrice` proves it. |
+
+The three vaults share `LeanYieldBase`, which owns the harvest and the stream, and `LeanVaultBase`, which owns the accounting. Per transaction, with two allowlisted strategies:
+
+| Call | Idle shell | One strategy | Allocator, two strategies |
+|---|---|---|---|
+| `deposit()` first, cold vault | 106,096 | 168,564 | 175,824 |
+| `deposit()` subsequent | 54,796 | 83,064 | 90,324 |
+| `withdraw()` | 53,291 | 76,089 | 82,939 |
+| `redeem()` | 53,148 | 75,962 | 82,854 |
+| `convertToShares()` | 3,002 | 5,380 | 5,403 |
+| `harvest()` | | 48,512 | 66,850 |
+
+The allocator's extra cost per write is the cap check, which reads the target strategy's valuation. Harvest grows with the number of strategies.
+
+### An automated curator
+
+The allocator role is where an off-chain agent would sit. The vault does not care who holds the key, which is the point: the guardrails above are what make it safe to hand the key to software. The intended loop, not yet built:
+
+1. Code gathers structured state per strategy from on-chain reads: utilization, rate history, TVL flow, oracle status, age, audits.
+2. A System One model such as [TypeSafe's Jev](https://docs.typesafe.ai) returns typed judgments over that state, not prose: the probability that a strategy shows signs of stress, a risk level on described tiers, and a bounded action per strategy among hold, reduce and exit. Every judgment is a logged, testable value with a calibrated probability.
+3. Deterministic code turns judgments into target weights, clips them by the caps, and proposes rebalances within the window limit. Low-confidence judgments and any exit signal go to a person first.
+4. The agent runs in shadow mode, logging what it would do against real state, before it is given the allocator key. It earns the key with a track record.
+
+The same risk judgments can face users as well: matched against a stated horizon and tolerance, they become a recommendation of which vault fits, published as a signed statement anyone can verify.
+
 ## Quick start
 
 ```sh
 git clone https://github.com/yodablocks/leanvault && cd leanvault
 forge build
-forge test        # 26 properties on the shell, 26 through a strategy, 13 on the stream
+forge test        # 26 properties on each of the three vaults, plus the stream, guardrail and gas tests
 ```
 
 ## Roadmap
 
 1. ~~A yield strategy.~~ Done: `LeanYieldVault`, permissionless harvest with streamed gains.
-2. **A real strategy on a testnet**, sDAI-style, with the vault deployed against it and harvested for a week.
-3. **`permit`** on the share token, then re-measure deployment.
-4. **ERC-7540** request-based deposits and redemptions for anything with lockups.
-5. **An external audit**, before any real funds. Nothing in this repository is a substitute for one.
+2. ~~Multiple strategies with bounded curator authority.~~ Done: `LeanAllocatorVault`.
+3. **The curator agent in shadow mode**: the off-chain loop above, logging proposals against real strategies before it holds a key.
+4. **Real strategies on a testnet**, with the allocator deployed against them and harvested for a week.
+5. **`permit`** on the share token, then re-measure deployment.
+6. **ERC-7540** request-based deposits and redemptions for anything with lockups.
+7. **An external audit**, before any real funds. Nothing in this repository is a substitute for one.
 
 ## License
 
