@@ -21,3 +21,10 @@ optimizer_runs = 10_000_000
 via_ir = false
 ignored_warnings_from = ["lib"]
 fuzz = { runs = 512 }
+
+# forge lint on Foundry 1.8 flags every Deposit, Withdraw and Transfer event as
+# "emitted after an external call". In this contract every event is emitted
+# before the asset transfer, which is the last statement of each function, so
+# the rule is excluded rather than the code reordered against the CEI pattern.
+[lint]
+exclude_lints = ["reentrancy-events"]
