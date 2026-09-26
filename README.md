@@ -123,6 +123,34 @@ The model called both "hold" with high confidence and rated their health with lo
 
 **Twenty-three vaults, and a lesson in state.** The watchlist grew to 23 USDC vaults on Ethereum and Base, the two allocation targets plus 21 that are only ranked. Two of the 21 report numbers upstream that no lending vault could produce, and they are on the list unlabeled. The first pass with 23 ranked one of them third: the model had been shown only a flag for "price below one", and a vault claiming each share is worth 822 dollars was invisible in that state. With the share price and a code-computed plausibility check added to what it sees, both went to the bottom with an exit signal, health 2.9 out of 3. Same model, same vaults. What the model is shown decides what it can catch, and a pass over the real list is how you find out what it cannot see.
 
+**The vaults it tracks.** All USDC, all ERC4626, all verified at startup by reading their name and asset. TVL as observed on 2026-09-26. Two of the watch-only entries are the deliberately planted implausible vaults described above, left unlabeled here as well.
+
+| Vault | Chain | Address | TVL (USDC) | Role |
+|---|---|---|---|---|
+| Steakhouse USDC | Ethereum | [`0xBEEF…64CB`](https://etherscan.io/address/0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB) | 66.3M | allocation target |
+| Steakhouse Prime USDC | Ethereum | [`0xbeef…0f51`](https://etherscan.io/address/0xbeef088055857739C12CD3765F20b7679Def0f51) | 123.3M | watch |
+| Steakhouse USDC | Base | [`0xbeeF…8183`](https://basescan.org/address/0xbeeF010f9cb27031ad51e3333f9aF9C6B1228183) | 126.7M | watch |
+| Steakhouse Prime USDC | Base | [`0xbeef…73C9`](https://basescan.org/address/0xbeef0e0834849aCC03f0089F01f4F1Eeb06873C9) | 444.1M | watch |
+| Gauntlet USDC Prime | Ethereum | [`0xdd0f…490d`](https://etherscan.io/address/0xdd0f28e19C1780eb6396170735D45153D261490d) | 23.0M | allocation target |
+| Hakutora USDC | Ethereum | [`0x974c…40a9`](https://etherscan.io/address/0x974c8FBf4fd795F66B85B73ebC988A51F1A040a9) | 15.9M | watch |
+| Smokehouse USDC | Ethereum | [`0xBEeF…f5bC`](https://etherscan.io/address/0xBEeFFF209270748ddd194831b3fa287a5386f5bC) | 13.6M | watch |
+| Vault Bridge USDC | Ethereum | [`0xBEef…A9c4`](https://etherscan.io/address/0xBEefb9f61CC44895d8AEc381373555a64191A9c4) | 12.5M | watch |
+| Gauntlet USDC RWA | Ethereum | [`0xA887…6C45`](https://etherscan.io/address/0xA8875aaeBc4f830524e35d57F9772FfAcbdD6C45) | 11.0M | watch |
+| Yearn OG USDC | Ethereum | [`0xF9bd…Ec49`](https://etherscan.io/address/0xF9bdDd4A9b3A45f980e11fDDE96e16364dDBEc49) | 10.6M | watch |
+| Spark Blue Chip USDC Vault | Ethereum | [`0x56A7…581D`](https://etherscan.io/address/0x56A76b428244a50513ec81e225a293d128fd581D) | 10.3M | watch |
+| SwissBorg Morpho USDC | Ethereum | [`0x4Ff4…9E59`](https://etherscan.io/address/0x4Ff4186188f8406917293A9e01A1ca16d3cf9E59) | 9.2M | watch |
+| Yearn USDC | Ethereum | [`0x68Ae…45A3`](https://etherscan.io/address/0x68Aea7b82Df6CcdF76235D46445Ed83f85F845A3) | 6.2M | watch |
+| Gauntlet USDC Core | Ethereum | [`0x8eB6…d458`](https://etherscan.io/address/0x8eB67A509616cd6A7c1B3c8C21D48FF57df3d458) | 3.8M | watch |
+|  Usual Boosted USDC | Ethereum | [`0xd630…3a3D`](https://etherscan.io/address/0xd63070114470f685b75B74D60EEc7c1113d33a3D) | 2.0M | watch |
+| Safe x Steakhouse USDC | Ethereum | [`0xbEeF…D92F`](https://etherscan.io/address/0xbEeFCe6c76C7D7A8066562Fe9FF0e343a52dD92F) | 1.8M | watch |
+| Hyperithm USDC Apex | Ethereum | [`0x7777…7777`](https://etherscan.io/address/0x777791C4d6DC2CE140D00D2828a7C93503c67777) | 1.6M | watch |
+| Clearstar USDC Reactor | Ethereum | [`0x62fE…dC78`](https://etherscan.io/address/0x62fE596d59fB077c2Df736dF212E0AFfb522dC78) | 1.3M | watch |
+| Fluid USD Coin | Ethereum | [`0x9Fb7…1B33`](https://etherscan.io/address/0x9Fb7b4477576Fe5B32be4C1843aFB1e55F251B33) | 130.0M | watch |
+| Static Aave Ethereum USDC | Ethereum | [`0x73ed…C9E6`](https://etherscan.io/address/0x73edDFa87C71ADdC275c2b9890f5c3a8480bC9E6) | 0.0M | watch |
+| USDC-1 yVault | Ethereum | [`0xBe53…6204`](https://etherscan.io/address/0xBe53A109B494E5c9f97b9Cd39Fe969BE68BF6204) | 19.6M | watch |
+| Adpend USDC | Ethereum | [`0x5555…5555`](https://etherscan.io/address/0x55555815a5595991C3A0Ff119B59AEF6C8B55555) | 368.5M | watch |
+| 1337 USDC | Ethereum | [`0x9464…96c1`](https://etherscan.io/address/0x94643e86aa5E38DDAc6c7791C1297f4E40cD96c1) | 196.5M | watch |
+
 **What it is not.** It does not predict yields, it sees only the fields it is shown, and it has no authority. The intended path from here is a schedule of hourly passes for weeks, a comparison of its log with what a human curator would have done, and only then the allocator key, inside the caps and the window limit the contract enforces regardless.
 
 **The same judgments face users too.** Matched against a stated horizon and tolerance, the per-strategy health scores become a recommendation of which vault fits, publishable as a signed statement anyone can verify. Same engine, different consumer.
