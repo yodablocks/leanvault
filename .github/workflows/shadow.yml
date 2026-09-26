@@ -1,0 +1,73 @@
+name: shadow
+
+# Hourly shadow pass of the curator against the real strategies. Appends the
+# snapshots, judgments and plans to the `shadow-log` branch, which is the
+# record that decides whether the agent ever gets the allocator key.
+# Needs the TYPESAFE_API_KEY repository secret; without it the run skips.
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: shadow-log
+  cancel-in-progress: false
+
+jobs:
+  shadow:
+    name: Shadow pass
+    runs-on: ubuntu-latest
+    env:
+      TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+      ETH_RPC_URL: ${{ vars.ETH_RPC_URL || 'https://ethereum-rpc.publicnode.com' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Restore the log so the history feeds the signals
+        run: |
+          mkdir -p curator/data
+          if git fetch --depth=1 origin shadow-log 2>/dev/null; then
+            git show origin/shadow-log:snapshots.jsonl > curator/data/snapshots.jsonl 2>/dev/null || true
+            git show origin/shadow-log:judgments.jsonl > curator/data/judgments.jsonl 2>/dev/null || true
+            git show origin/shadow-log:proposals.jsonl > curator/data/proposals.jsonl 2>/dev/null || true
+          fi
+          wc -l curator/data/*.jsonl 2>/dev/null || echo "no history yet"
+
+      - name: Shadow pass
+        working-directory: curator
+        run: |
+          if [ -z "$TYPESAFE_API_KEY" ]; then
+            echo "TYPESAFE_API_KEY secret is not set; taking snapshots only"
+            bun run src/cli.ts observe
+          else
+            bun run src/cli.ts shadow
+          fi
+
+      - name: Append to the shadow-log branch
+        run: |
+          set -e
+          tmp=$(mktemp -d)
+          cp curator/data/*.jsonl "$tmp"/
+          cd "$tmp"
+          git init -q
+          git config user.name "shadow-bot"
+          git config user.email "shadow-bot@users.noreply.github.com"
+          git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          if git fetch --depth=1 origin shadow-log 2>/dev/null; then
+            git checkout -q -b shadow-log origin/shadow-log
+            cp "$tmp"/*.jsonl . 2>/dev/null || true
+          else
+            git checkout -q --orphan shadow-log
+            printf '# shadow-log\n\nAppend-only record written by the shadow workflow. Not code.\n' > README.md
+          fi
+          git add -A
+          git commit -q -m "shadow pass $(date -u +%Y-%m-%dT%H:%MZ)" || { echo "nothing new"; exit 0; }
+          git push -q origin shadow-log
