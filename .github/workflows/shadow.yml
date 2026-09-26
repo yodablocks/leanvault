@@ -59,8 +59,9 @@ jobs:
       - name: Append to the shadow-log branch
         run: |
           set -e
+          # Check the log branch out into an empty directory first, then lay the
+          # new files over it. Copying first made the checkout refuse to overwrite them.
           tmp=$(mktemp -d)
-          cp curator/data/*.jsonl "$tmp"/
           cd "$tmp"
           git init -q
           git config user.name "shadow-bot"
@@ -68,11 +69,11 @@ jobs:
           git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
           if git fetch --depth=1 origin shadow-log 2>/dev/null; then
             git checkout -q -b shadow-log origin/shadow-log
-            cp "$tmp"/*.jsonl . 2>/dev/null || true
           else
             git checkout -q --orphan shadow-log
             printf '# shadow-log\n\nAppend-only record written by the shadow workflow. Not code.\n' > README.md
           fi
+          cp "$GITHUB_WORKSPACE"/curator/data/*.jsonl .
           git add -A
           git commit -q -m "shadow pass $(date -u +%Y-%m-%dT%H:%MZ)" || { echo "nothing new"; exit 0; }
           git push -q origin shadow-log
