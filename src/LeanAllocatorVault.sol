@@ -25,6 +25,8 @@ contract LeanAllocatorVault is LeanYieldBase {
     uint256 public constant MIN_TIMELOCK = 1 hours;
     uint256 public constant MAX_TIMELOCK = 30 days;
     uint256 public constant REBALANCE_WINDOW = 24 hours;
+    /// @dev Bounds the withdrawal queue and the harvest loop.
+    uint256 public constant MAX_STRATEGIES = 8;
 
     struct StrategyInfo {
         bool active;
@@ -69,6 +71,7 @@ contract LeanAllocatorVault is LeanYieldBase {
     error InsufficientLiquidity();
     error StrategyMintedNothing();
     error NoDepositTarget();
+    error TooManyStrategies();
 
     constructor(
         address asset_,
@@ -109,6 +112,8 @@ contract LeanAllocatorVault is LeanYieldBase {
 
     /// @notice Activate a proposed strategy once the timelock has elapsed.
     function acceptStrategy(address strategy_) external onlyOwner {
+        if (strategy_ == address(0)) revert ZeroAddress();
+        if (_strategies.length >= MAX_STRATEGIES) revert TooManyStrategies();
         StrategyInfo storage info = strategyInfo[strategy_];
         if (info.active) revert StrategyAlreadyActive();
         if (info.proposedAt == 0) revert NotProposed();
@@ -130,7 +135,7 @@ contract LeanAllocatorVault is LeanYieldBase {
     function removeStrategy(address strategy_) external onlyOwner {
         StrategyInfo storage info = strategyInfo[strategy_];
         if (!info.active) revert StrategyNotActive();
-        if (IStrategy(strategy_).balanceOf(address(this)) != 0) revert StrategyNotEmpty();
+        if (IStrategy(strategy_).balanceOf(address(this)) > 0) revert StrategyNotEmpty();
         if (strategy_ == depositTarget) revert StrategyNotEmpty();
         info.active = false;
         info.cap = 0;
@@ -155,12 +160,15 @@ contract LeanAllocatorVault is LeanYieldBase {
     }
 
     function setDepositTarget(address strategy_) external onlyOwner {
+        if (strategy_ == address(0)) revert ZeroAddress();
         if (!strategyInfo[strategy_].active) revert StrategyNotActive();
         depositTarget = strategy_;
         emit DepositTargetSet(strategy_);
     }
 
+    /// @dev The zero address is a valid value: it disables the allocator role, leaving the owner.
     function setAllocator(address allocator_) external onlyOwner {
+        // forge-lint: disable-next-line(missing-zero-check)
         allocator = allocator_;
         emit AllocatorSet(allocator_);
     }
@@ -196,7 +204,7 @@ contract LeanAllocatorVault is LeanYieldBase {
 
     /// @notice Move `assets` from one allowlisted strategy to another, within the
     ///         destination's cap and the per-window limit.
-    function rebalance(address from, address to, uint256 assets) external onlyAllocator nonReentrant {
+    function rebalance(address from, address to, uint256 assets) external nonReentrant onlyAllocator {
         if (!strategyInfo[from].active || !strategyInfo[to].active) revert StrategyNotActive();
         if (assets == 0) revert ZeroAmount();
         if (from == to) revert StrategyNotActive();
