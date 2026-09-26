@@ -97,16 +97,43 @@ The three vaults share `LeanYieldBase`, which owns the harvest and the stream, a
 
 The allocator's extra cost per write is the cap check, which reads the target strategy's valuation. Harvest grows with the number of strategies.
 
-### An automated curator
+### The curator, with Jev
 
-The allocator role is where an off-chain agent would sit. The vault does not care who holds the key, which is the point: the guardrails above are what make it safe to hand the key to software. The intended loop, not yet built:
+The allocator role is where software sits, and `curator/` is that software: a shadow-mode curator that watches real strategies, asks a model for typed judgments, and logs the rebalances it would propose. It holds no funds and no keys, and it sends nothing to any chain. Zero dependencies: Bun runs the TypeScript, the chain is read through plain JSON-RPC, and the model is [TypeSafe's Jev](https://docs.typesafe.ai) through its HTTP API.
 
-1. Code gathers structured state per strategy from on-chain reads: utilization, rate history, TVL flow, oracle status, age, audits.
-2. A System One model such as [TypeSafe's Jev](https://docs.typesafe.ai) returns typed judgments over that state, not prose: the probability that a strategy shows signs of stress, a risk level on described tiers, and a bounded action per strategy among hold, reduce and exit. Every judgment is a logged, testable value with a calibrated probability.
-3. Deterministic code turns judgments into target weights, clips them by the caps, and proposes rebalances within the window limit. Low-confidence judgments and any exit signal go to a person first.
-4. The agent runs in shadow mode, logging what it would do against real state, before it is given the allocator key. It earns the key with a track record.
+**Why a System One model and not a chat model.** Jev does not write prose or reason out loud. It takes structured state and returns typed answers with calibrated probabilities: a yes-or-no probability, a score on described levels, a choice among named options. That is what a control loop wants. Every judgment is a logged, testable value, it is cheap enough to run every hour, and it is honest about uncertainty, which is the property that matters before anything moves money.
 
-The same risk judgments can face users as well: matched against a stated horizon and tolerance, they become a recommendation of which vault fits, published as a signed statement anyone can verify.
+**The loop, as it runs today.**
+
+| Step | What happens |
+|---|---|
+| Observe | Read `name`, `asset`, `totalAssets`, `convertToAssets`, `maxWithdraw` and `fee` for each strategy, verify the asset, append a snapshot. From the history: realized APY, TVL change, worst single-step price move. |
+| Judge | Show Jev one strategy's numbers as named fields and ask three narrow questions. *Stress*: does this vault show signs a prudent allocator would react to within a day, as a probability. *Health*: a score on four described levels from healthy to exit now. *Action*: hold, reduce or exit. |
+| Allocate | Deterministic code turns the answers into weights, clips targets by the caps, drops differences under a dead band, and lists the moves the allocator would submit within the 24-hour limit. Exit signals, high stress and low confidence are escalated to a person and the plan is flagged as needing approval. |
+| Log | Snapshots, judgments and plans are appended under `curator/data/`. That record is what decides whether the agent ever gets the allocator key. |
+
+**What the first live pass looked like.** Two mainnet USDC vaults, Steakhouse USDC and Gauntlet USDC Prime, about 89 million between them, on a ten-minute window:
+
+| Vault | Stress | Health (0 to 3) | Confidence | Action |
+|---|---|---|---|---|
+| Steakhouse USDC | 0.16 | 0.90 | 0.33 | hold, 0.89 |
+| Gauntlet USDC Prime | 0.16 | 1.05 | 0.25 | hold, 0.85 |
+
+The model called both "hold" with high confidence and rated their health with low confidence, spreading probability across "healthy" and "watch" and keeping 14 to 17% on "exit now", because on ten minutes of history it had no realized yield and no liquidity figure, and it was told so. It did not pretend to know. The policy escalated the low confidence and proposed no move. That first run also caught a flaw in the policy, which had proposed moving 18,519 USDC on a 0.15 difference between two low-confidence scores; the dead band exists because of it. About 775 input tokens per strategy per pass.
+
+**What it is not.** It does not predict yields, it sees only the fields it is shown, and it has no authority. The intended path from here is a schedule of hourly passes for weeks, a comparison of its log with what a human curator would have done, and only then the allocator key, inside the caps and the window limit the contract enforces regardless.
+
+**The same judgments face users too.** Matched against a stated horizon and tolerance, the per-strategy health scores become a recommendation of which vault fits, publishable as a signed statement anyone can verify. Same engine, different consumer.
+
+Run it:
+
+```sh
+cd curator
+cp .env.example .env            # add TYPESAFE_API_KEY
+bun run observe                 # snapshots only, no key needed
+bun run shadow                  # judgments plus the plan it would execute
+bun test
+```
 
 ## Quick start
 
@@ -120,7 +147,8 @@ forge test        # 26 properties on each of the three vaults, plus the stream, 
 
 1. ~~A yield strategy.~~ Done: `LeanYieldVault`, permissionless harvest with streamed gains.
 2. ~~Multiple strategies with bounded curator authority.~~ Done: `LeanAllocatorVault`.
-3. **The curator agent in shadow mode**: the off-chain loop above, logging proposals against real strategies before it holds a key.
+3. ~~The curator agent in shadow mode.~~ Done: `curator/`, first live judgments on two mainnet vaults.
+3b. **Run it on a schedule for weeks** and compare its log with a human curator's calls before it holds a key.
 4. **Real strategies on a testnet**, with the allocator deployed against them and harvested for a week.
 5. **`permit`** on the share token, then re-measure deployment.
 6. **ERC-7540** request-based deposits and redemptions for anything with lockups.
