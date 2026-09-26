@@ -145,14 +145,20 @@ forge test        # 26 properties on each of the three vaults, plus the stream, 
 
 ## Roadmap
 
-1. ~~A yield strategy.~~ Done: `LeanYieldVault`, permissionless harvest with streamed gains.
-2. ~~Multiple strategies with bounded curator authority.~~ Done: `LeanAllocatorVault`.
-3. ~~The curator agent in shadow mode.~~ Done: `curator/`, first live judgments on two mainnet vaults.
-3b. **Run it on a schedule for weeks** and compare its log with a human curator's calls before it holds a key.
-4. **Real strategies on a testnet**, with the allocator deployed against them and harvested for a week.
-5. **`permit`** on the share token, then re-measure deployment.
-6. **ERC-7540** request-based deposits and redemptions for anything with lockups.
-7. **An external audit**, before any real funds. Nothing in this repository is a substitute for one.
+Done, in the order it happened:
+
+- The shell: `LeanVault`, the cheapest ERC4626 accounting layer we could write, measured against Solady in [erc4626-bench](https://github.com/yodablocks/erc4626-bench).
+- One strategy: `LeanYieldVault`, permissionless harvest with gains streamed and losses taken at once.
+- Many strategies: `LeanAllocatorVault`, with the curator's authority bounded on-chain by a timelocked allowlist, caps and a per-window rebalance limit.
+- The curator: `curator/`, watching two mainnet vaults, judging with Jev, logging what it would do. Runs every hour on GitHub and appends to the `shadow-log` branch.
+
+Next, in order:
+
+1. **Let the log accumulate.** Weeks of hourly passes, then a comparison of the agent's proposals with what a human curator would have done. Only that record decides whether the agent gets the allocator key.
+2. **Real strategies on a testnet.** Deploy `LeanAllocatorVault` against strategies that exist there, harvest for a week, and let the curator watch a vault it could actually move.
+3. **`permit` on the share token**, then re-measure deployment.
+4. **ERC-7540** request-based deposits and redemptions for anything with lockups.
+5. **An external audit**, before any real funds. Nothing in this repository is a substitute for one.
 
 ## License
 
