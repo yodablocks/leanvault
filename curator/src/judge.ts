@@ -24,6 +24,7 @@ export function makeTypeSafeClient(apiKey: string, fetchImpl: typeof fetch = fet
 /** What the model is shown. Named fields, numbers rounded, no free text. */
 export interface StrategyState {
   label: string;
+  chain: string;
   vault_name: string;
   asset: string;
   observed_days: number;
@@ -34,13 +35,18 @@ export interface StrategyState {
   /** null means the vault does not expose it, not that it is zero. */
   liquidity_ratio_now: number | null;
   vault_fee_fraction: number | null;
+  /** Assets one share redeems for. A stablecoin vault that has only ever earned lending yield sits modestly above 1. */
+  price_per_share: number;
   is_price_per_share_below_one: boolean;
+  /** Code-computed: true when the price is outside what accumulated lending yield could explain. */
+  is_price_per_share_implausible: boolean;
 }
 
 export function buildState(snap: Snapshot, sig: Signals): StrategyState {
   const r = (x: number | null, d = 6) => (x === null ? null : Number(x.toFixed(d)));
   return {
     label: snap.label,
+    chain: snap.chain,
     vault_name: snap.name,
     asset: snap.assetSymbol,
     observed_days: Number(sig.observedDays.toFixed(3)),
@@ -50,7 +56,12 @@ export function buildState(snap: Snapshot, sig: Signals): StrategyState {
     worst_single_step_price_change: r(sig.worstPriceStep, 8),
     liquidity_ratio_now: r(snap.liquidityRatio, 4),
     vault_fee_fraction: r(snap.fee, 4),
+    price_per_share: Number(snap.pricePerShare.toFixed(6)),
     is_price_per_share_below_one: snap.pricePerShare > 0 && snap.pricePerShare < 1,
+    // Years of stablecoin lending yield compound to a few tens of percent. A
+    // price several times the asset cannot come from yield; it means the
+    // vault's share accounting is not what an ERC4626 depositor expects.
+    is_price_per_share_implausible: snap.pricePerShare <= 0 || snap.pricePerShare > 3,
   };
 }
 
@@ -58,14 +69,14 @@ export const RISK_LEVELS = [
   "Healthy: yield steady and positive, deposits stable or growing, no price drops, liquidity ample.",
   "Watch: something moved but nothing broke, such as a noticeable outflow of deposits, yield well below the norm for this kind of vault, or thin liquidity that would delay a large withdrawal.",
   "Impaired: the share price fell in a single step, or liquidity is so thin that most depositors could not exit, or yield turned negative over the window.",
-  "Exit now: the vault has lost a material part of its assets, or withdrawals are effectively frozen, or the observed state is inconsistent with a functioning vault.",
+  "Exit now: the vault has lost a material part of its assets, or withdrawals are effectively frozen, or the share price or accounting is inconsistent with a functioning stablecoin vault.",
 ] as const;
 
 export const questions = {
   stress: {
     type: "noul",
     instructions:
-      "Does this ERC4626 vault show signs of stress that a prudent allocator would react to within the next day? Judge from the observed numbers only: deposit outflows, a falling or negative yield, a drop in share price, thin liquidity, or a fee out of line with a passive vault. A null field means the value is not observable, not that it is zero. A short observation window alone is not stress.",
+      "Does this ERC4626 vault show signs of stress that a prudent allocator would react to within the next day? Judge from the observed numbers only: deposit outflows, a falling or negative yield, a drop in share price, a share price that lending yield could not explain, thin liquidity, or a fee out of line with a passive vault. A null field means the value is not observable, not that it is zero. A short observation window alone is not stress.",
   },
   risk: {
     type: "score",
