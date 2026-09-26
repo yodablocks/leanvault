@@ -1,13 +1,15 @@
 name: shadow
 
-# Hourly shadow pass of the curator against the real strategies. Appends the
+# Shadow pass of the curator against the real strategies, every six hours.
+# GitHub delays or skips scheduled runs under load; four a day is enough for
+# stress detection in lending vaults and keeps the token cost modest. Appends the
 # snapshots, judgments and plans to the `shadow-log` branch, which is the
 # record that decides whether the agent ever gets the allocator key.
 # Needs the TYPESAFE_API_KEY repository secret; without it the run skips.
 
 on:
   schedule:
-    - cron: "17 * * * *"
+    - cron: "23 */6 * * *"
   workflow_dispatch:
 
 permissions:
@@ -23,7 +25,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
-      ETH_RPC_URL: ${{ vars.ETH_RPC_URL || 'https://ethereum-rpc.publicnode.com' }}
+      # Alchemy URLs as secrets, since the URL carries the key. Public endpoints throttle at this call volume.
+      ETH_RPC_URL: ${{ secrets.ETH_RPC_URL || 'https://ethereum-rpc.publicnode.com' }}
+      BASE_RPC_URL: ${{ secrets.BASE_RPC_URL || 'https://mainnet.base.org' }}
+      CURATOR_CONCURRENCY: "4"
     steps:
       - uses: actions/checkout@v4
 

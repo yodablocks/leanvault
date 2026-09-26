@@ -14,7 +14,17 @@ export interface Proposal {
   escalate: string[];
 }
 
+export interface Ranked {
+  label: string;
+  weight: number;
+  stress: number;
+  risk: number;
+  action: string;
+}
+
 export interface Plan {
+  /** Every judged strategy, best first, whether or not it is allocatable. */
+  ranking: Ranked[];
   proposals: Proposal[];
   /** Moves the allocator would submit now, bounded by the window limit. */
   moves: { from: string; to: string; assets: number }[];
@@ -50,11 +60,12 @@ export function plan(
     if (j.action.confidence < cfg.thresholds.minConfidence) escalations.push(`${j.label}: action confidence ${j.action.confidence.toFixed(2)} below ${cfg.thresholds.minConfidence}`);
   }
   const total = Object.values(cfg.currentAllocation).reduce((a, b) => a + b, 0);
-  const sumW = Object.values(weights).reduce((a, b) => a + b, 0);
+  const sumW = cfg.strategies.filter((s) => s.allocate).reduce((a, s) => a + (weights[s.label] ?? 0), 0);
 
   // Targets proportional to weight, then clipped by caps; anything clipped is
   // left where it is rather than forced into a worse strategy.
-  const proposals: Proposal[] = judgments.map((j) => {
+  const allocatable = new Set(cfg.strategies.filter((s) => s.allocate).map((s) => s.label));
+  const proposals: Proposal[] = judgments.filter((j) => allocatable.has(j.label)).map((j) => {
     const cap = cfg.strategies.find((s) => s.label === j.label)?.cap ?? 0;
     const current = cfg.currentAllocation[j.label] ?? 0;
     const raw = sumW === 0 ? current : (total * (weights[j.label] ?? 0)) / sumW;
@@ -87,5 +98,8 @@ export function plan(
       src.left -= amount; dst.left -= amount; budget -= amount;
     }
   }
-  return { proposals, moves, escalations, needsApproval: escalations.length > 0 };
+  const ranking: Ranked[] = judgments
+    .map((j) => ({ label: j.label, weight: weights[j.label] ?? 0, stress: j.stress, risk: j.risk.score, action: j.action.choice }))
+    .sort((a, b) => b.weight - a.weight || a.stress - b.stress);
+  return { ranking, proposals, moves, escalations, needsApproval: escalations.length > 0 };
 }

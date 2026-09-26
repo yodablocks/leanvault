@@ -5,6 +5,7 @@ import type { StrategyConfig } from "./config";
 /** One reading of one strategy. Everything the judgments see comes from here. */
 export interface Snapshot {
   label: string;
+  chain: string;
   address: string;
   name: string;
   assetSymbol: string;
@@ -13,7 +14,7 @@ export interface Snapshot {
   timestamp: number;
   /** Whole asset units. */
   totalAssets: number;
-  /** Assets per 1e18 shares, in whole asset units. */
+  /** Assets per one whole share, in whole asset units. */
   pricePerShare: number;
   /** Fraction of totalAssets withdrawable right now by a hypothetical holder of everything. */
   liquidityRatio: number | null;
@@ -36,16 +37,23 @@ export async function observe(rpc: Rpc, s: StrategyConfig): Promise<Snapshot> {
     rpc.call(s.address, SEL.asset),
   ]);
   const asset = decodeAddress(assetHex);
-  const [symHex, decRaw, totalAssets, totalSupply, pps, fee] = await Promise.all([
+  const [symHex, decRaw, shareDecRaw, totalAssets, totalSupply, fee] = await Promise.all([
     rpc.call(asset, SEL.symbol),
     callUint(rpc, asset, SEL.decimals),
+    callUint(rpc, s.address, SEL.decimals),
     callUint(rpc, s.address, SEL.totalAssets),
     callUint(rpc, s.address, SEL.totalSupply),
-    callUint(rpc, s.address, SEL.convertToAssets + encodeUint(10n ** 18n)),
     callUint(rpc, s.address, SEL.fee),
   ]);
   const decimals = Number(decRaw ?? 18n);
   const unit = 10 ** decimals;
+  // Share decimals differ between vaults (6 for some, 18 for others), so price
+  // per share is read for exactly one share, not for 1e18 raw units.
+  const shareDecimals = Number(shareDecRaw ?? 18n);
+  // Ask for a million shares and divide, so a 6-decimal asset still yields
+  // twelve significant decimals of price: hourly growth at 5% a year is about
+  // 6e-6, which a single share's 6 decimals would barely resolve.
+  const ppsMillion = await callUint(rpc, s.address, SEL.convertToAssets + encodeUint(10n ** BigInt(shareDecimals + 6)));
   // Liquidity: vaults answer maxWithdraw per owner, and there is no universal
   // view for "how much could leave right now". Asking about the vault's own
   // address gives a real number only for implementations that clamp by global
@@ -55,6 +63,7 @@ export async function observe(rpc: Rpc, s: StrategyConfig): Promise<Snapshot> {
   const ta = Number(totalAssets ?? 0n) / unit;
   return {
     label: s.label,
+    chain: s.chain,
     address: s.address,
     name: decodeString(nameHex),
     assetSymbol: decodeString(symHex),
@@ -62,8 +71,11 @@ export async function observe(rpc: Rpc, s: StrategyConfig): Promise<Snapshot> {
     block: Number(block.number),
     timestamp: block.timestamp,
     totalAssets: ta,
-    pricePerShare: Number(pps ?? 0n) / unit,
-    liquidityRatio: maxW === null || maxW === 0n || ta === 0 ? null : Math.min(1, Number(maxW) / unit / ta),
+    pricePerShare: Number(ppsMillion ?? 0n) / unit / 1e6,
+    // A probe result under a millionth of the vault is the vault's own dust
+    // balance answering, not liquidity; report unknown rather than zero.
+    liquidityRatio:
+      maxW === null || ta === 0 || Number(maxW) / unit / ta < 1e-6 ? null : Math.min(1, Number(maxW) / unit / ta),
     fee: fee === null ? null : Number(fee) / 1e18,
   };
 }
@@ -107,4 +119,18 @@ export function signals(history: Snapshot[]): Signals {
     tvlChange: first.totalAssets > 0 ? last.totalAssets / first.totalAssets - 1 : null,
     worstPriceStep: worst,
   };
+}
+
+/** Run `fn` over `items` with at most `limit` in flight. */
+export async function mapLimit<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i]!);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
 }
