@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {LeanYieldVault} from "../src/LeanYieldVault.sol";
 import {LeanVaultBase} from "../src/LeanVaultBase.sol";
+import {LeanYieldBase} from "../src/LeanYieldBase.sol";
 import {MockStrategy} from "./mocks/MockStrategy.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 
@@ -73,9 +74,9 @@ contract LeanYieldVaultTest is Test {
         MockStrategy wrong = new MockStrategy(address(other));
         vm.expectRevert(LeanYieldVault.StrategyAssetMismatch.selector);
         new LeanYieldVault(address(asset), address(wrong), "x", "x", PERIOD);
-        vm.expectRevert(LeanYieldVault.InvalidUnlockPeriod.selector);
+        vm.expectRevert(LeanYieldBase.InvalidUnlockPeriod.selector);
         new LeanYieldVault(address(asset), address(strategy), "x", "x", 1 minutes);
-        vm.expectRevert(LeanYieldVault.InvalidUnlockPeriod.selector);
+        vm.expectRevert(LeanYieldBase.InvalidUnlockPeriod.selector);
         new LeanYieldVault(address(asset), address(strategy), "x", "x", 31 days);
     }
 
@@ -215,7 +216,7 @@ contract LeanYieldVaultTest is Test {
         vm.prank(alice);
         vm.expectRevert(LeanVaultBase.Unauthorized.selector);
         vault.setUnlockPeriod(2 days);
-        vm.expectRevert(LeanYieldVault.InvalidUnlockPeriod.selector);
+        vm.expectRevert(LeanYieldBase.InvalidUnlockPeriod.selector);
         vault.setUnlockPeriod(0);
         vault.setUnlockPeriod(2 days);
         assertEq(vault.unlockPeriod(), 2 days);
