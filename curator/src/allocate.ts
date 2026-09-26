@@ -35,7 +35,7 @@ export interface Plan {
 
 const TOP = RISK_LEVELS.length - 1;
 
-/** Raw attractiveness in [0, 1]: yield-neutral, risk-weighted. Zero on an exit signal. */
+/** Raw attractiveness in [0, 1]: yield-weighted, risk-weighted. Zero on an exit signal. `apy` is the realized yield when known, else the aggregator's 30-day mean. */
 export function weightOf(j: Judgment, apy: number | null, thresholds: CuratorConfig["thresholds"]): number {
   if (j.action.choice === "exit" || j.stress >= thresholds.stressExit) return 0;
   const risk = j.risk.score / TOP; // 0 healthy, 1 exit

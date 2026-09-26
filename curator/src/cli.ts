@@ -4,6 +4,7 @@ import { mapLimit, observe, signals } from "./observe";
 import { buildState, judge, makeTypeSafeClient } from "./judge";
 import { plan } from "./allocate";
 import { append, history } from "./store";
+import { aggregatorFor, fetchLlamaPools } from "./llama";
 
 const cmd = process.argv[2] ?? "shadow";
 
@@ -35,13 +36,18 @@ if (cmd === "observe") {
   const key = process.env.TYPESAFE_API_KEY;
   if (!key) throw new Error("TYPESAFE_API_KEY is not set; `observe` works without it");
   const client = makeTypeSafeClient(key);
-  const snaps = await takeSnapshots();
+  const [snaps, pools] = await Promise.all([
+    takeSnapshots(),
+    fetchLlamaPools().catch((e) => { console.error(`defillama unavailable: ${e}`); return null; }),
+  ]);
   const judgments = [];
   const apys: Record<string, number | null> = {};
   for (const s of snaps) {
     const sig = signals(await history(s.label));
-    apys[s.label] = sig.realizedApy;
-    const state = buildState(s, sig);
+    const agg = aggregatorFor(pools, config.strategies.find((c) => c.label === s.label)?.llamaPool);
+    // Realized yield needs history; until then the aggregator's 30-day mean stands in.
+    apys[s.label] = sig.realizedApy ?? (agg?.apyMean30dPct != null ? agg.apyMean30dPct / 100 : null);
+    const state = buildState(s, sig, agg);
     const j = await judge(client, state);
     await append("judgments.jsonl", { at: s.timestamp, state, judgment: j });
     judgments.push(j);

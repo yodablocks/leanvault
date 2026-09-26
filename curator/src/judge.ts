@@ -2,6 +2,7 @@
 // The model never sees prose about what to do; it answers three narrow questions
 // and code decides. See https://docs.typesafe.ai/api
 import type { Signals, Snapshot } from "./observe";
+import type { Aggregator } from "./llama";
 
 export interface JudgeClient {
   systemOne(body: unknown): Promise<any>;
@@ -40,9 +41,18 @@ export interface StrategyState {
   is_price_per_share_below_one: boolean;
   /** Code-computed: true when the price is outside what accumulated lending yield could explain. */
   is_price_per_share_implausible: boolean;
+  /** From DefiLlama, a third-party index. Absent when the index could not be fetched. */
+  aggregator?: {
+    listed: boolean;
+    apy_now_pct: number | null;
+    apy_mean_30d_pct: number | null;
+    apy_volatility_30d: number | null;
+    apy_change_30d_pct: number | null;
+    flagged_outlier: boolean | null;
+  };
 }
 
-export function buildState(snap: Snapshot, sig: Signals): StrategyState {
+export function buildState(snap: Snapshot, sig: Signals, agg: Aggregator | null = null): StrategyState {
   const r = (x: number | null, d = 6) => (x === null ? null : Number(x.toFixed(d)));
   return {
     label: snap.label,
@@ -62,6 +72,18 @@ export function buildState(snap: Snapshot, sig: Signals): StrategyState {
     // price several times the asset cannot come from yield; it means the
     // vault's share accounting is not what an ERC4626 depositor expects.
     is_price_per_share_implausible: snap.pricePerShare <= 0 || snap.pricePerShare > 3,
+    ...(agg
+      ? {
+          aggregator: {
+            listed: agg.listed,
+            apy_now_pct: r(agg.apyNowPct, 3),
+            apy_mean_30d_pct: r(agg.apyMean30dPct, 3),
+            apy_volatility_30d: r(agg.apyVolatility30d, 4),
+            apy_change_30d_pct: r(agg.apyChange30dPct, 3),
+            flagged_outlier: agg.flaggedOutlier,
+          },
+        }
+      : {}),
   };
 }
 
@@ -76,7 +98,7 @@ export const questions = {
   stress: {
     type: "noul",
     instructions:
-      "Does this ERC4626 vault show signs of stress that a prudent allocator would react to within the next day? Judge from the observed numbers only: deposit outflows, a falling or negative yield, a drop in share price, a share price that lending yield could not explain, thin liquidity, or a fee out of line with a passive vault. A null field means the value is not observable, not that it is zero. A short observation window alone is not stress.",
+      "Does this ERC4626 vault show signs of stress that a prudent allocator would react to within the next day? Judge from the observed numbers only: deposit outflows, a falling or negative yield, a drop in share price, a share price that lending yield could not explain, thin liquidity, or a fee out of line with a passive vault. A null field means the value is not observable, not that it is zero. A short observation window alone is not stress. The aggregator fields come from DefiLlama, a third-party index with weeks of history: a large vault it does not list at all is unusual, and a 30-day yield far above what stablecoin lending pays, or flagged as an outlier, deserves suspicion.",
   },
   risk: {
     type: "score",
