@@ -22,11 +22,13 @@ bun run shadow                  # judgments plus the plan it would execute
 bun test
 ```
 
-Run `observe` on a schedule for a few days before reading anything into the judgments: realized APY needs at least an hour of history, and the model is told how long it has been watching.
+The GitHub workflow runs a pass every six hours and appends to the `shadow-log` branch. Realized APY needs at least an hour of history, and the model is told how long it has been watching, so the first day of judgments is made on thin state by design.
 
 ## Configuration
 
-`src/config.ts` lists the strategies (mainnet USDC vaults by default), the caps the allocator vault would enforce, a simulated current allocation, the per-window rebalance limit, and two thresholds: the stress probability that forces an exit, and the minimum confidence below which a judgment is escalated rather than acted on. Addresses are verified at startup against `name()` and `asset()`.
+`src/config.ts` lists the strategies, 23 USDC vaults on Ethereum and Base, each with a chain, an address, the cap the allocator vault would enforce, and whether it is part of the simulated allocation or watch-only. Watch-only vaults are judged and ranked, never allocated. Then the per-window rebalance limit and three thresholds: the stress probability that forces an exit, the minimum confidence below which a judgment is escalated rather than acted on, and the dead band under which a target delta is ignored. Addresses are verified at startup against `name()` and `asset()`.
+
+Two of the 23 reported implausible numbers upstream and are on the list on purpose, unlabeled. With the share price in the state, the model puts both at the bottom with an exit signal; without it, it ranked one of them third. What the model is shown decides what it can catch.
 
 ## What this is not
 
