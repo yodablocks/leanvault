@@ -166,11 +166,16 @@ contract LeanAllocatorVault is LeanYieldBase {
         emit DepositTargetSet(strategy_);
     }
 
-    /// @dev The zero address is a valid value: it disables the allocator role, leaving the owner.
     function setAllocator(address allocator_) external onlyOwner {
-        // forge-lint: disable-next-line(missing-zero-check)
+        if (allocator_ == address(0)) revert ZeroAddress();
         allocator = allocator_;
         emit AllocatorSet(allocator_);
+    }
+
+    /// @notice Disable the allocator role. The owner can still rebalance.
+    function clearAllocator() external onlyOwner {
+        allocator = address(0);
+        emit AllocatorSet(address(0));
     }
 
     function setTimelock(uint256 timelock_) external onlyOwner {
