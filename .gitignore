@@ -1,0 +1,7 @@
+out/
+out-*/
+cache/
+broadcast/
+anvil-zksync.log
+.env
+.DS_Store
