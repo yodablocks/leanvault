@@ -1,7 +1,7 @@
 #!/bin/zsh
 # Off-GitHub watchdog for the shadow log. The shadow workflow and its GitHub
 # watchdog share one scheduler, and GitHub disables every schedule of a public
-# repository after 60 days without activity, silently. This runs from launchd on
+# repository after 60 days without activity, silently. This runs from a scheduler on
 # a machine that is not GitHub and checks two things:
 #   1. both scheduled workflows are still enabled (state "active");
 #   2. the newest pass on the shadow-log branch is recent (`health --age`).
@@ -10,7 +10,7 @@
 #   curator/scripts/watch-shadow.sh                          # by hand
 #   SHADOW_MAX_GAP_HOURS=0.01 curator/scripts/watch-shadow.sh  # force a failure to test the alert
 #
-# launchd runs with a bare PATH, so tools are found by absolute path or overridden.
+# Schedulers such as launchd and cron run with a bare PATH, so tools are found by absolute path or overridden.
 set -u
 GH=${GH:-/opt/homebrew/bin/gh}
 GIT=${GIT:-/opt/homebrew/bin/git}
