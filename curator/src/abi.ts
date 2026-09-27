@@ -9,6 +9,8 @@ export const SEL = {
   decimals: "0x313ce567",
   convertToAssets: "0x07a2d13a",
   maxWithdraw: "0xce96cb77",
+  withdraw: "0xb460af94",
+  balanceOf: "0x70a08231",
   maxDeposit: "0x402d267d",
   fee: "0xddca3f43",
 } as const;
