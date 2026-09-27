@@ -23,6 +23,29 @@ export interface SiteOptions {
 }
 
 const PLAN_WINDOW_S = 15 * 60;
+
+/** First scheduled pass with measured liquidity (#17) and the current rubric (#18). Move it when either changes. */
+export const CUTOFF = Date.parse("2026-09-27T12:12:00Z") / 1000;
+
+const W = 90, H = 22, PAD = 5;
+
+/**
+ * Risk over passes on a fixed 0-3 scale, higher drawn higher, so lines compare
+ * across vaults. The line is muted and the latest point is in ink, a 2px line
+ * and an 8px dot. The title is the hover layer; the page runs no script.
+ */
+export function riskLine(points: number[]): string {
+  if (points.length === 0) return "";
+  const x = (i: number) => (points.length === 1 ? W / 2 : PAD + (i * (W - 2 * PAD)) / (points.length - 1));
+  const y = (v: number) => H - PAD - (Math.min(3, Math.max(0, v)) / 3) * (H - 2 * PAD);
+  const last = points[points.length - 1]!;
+  const line = points.length > 1
+    ? `<polyline fill="none" stroke="var(--mute)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="${points.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ")}"/>`
+    : "";
+  const dot = `<circle cx="${x(points.length - 1).toFixed(1)}" cy="${y(last).toFixed(1)}" r="4" fill="currentColor"/>`;
+  const title = `<title>risk per pass: ${points.map((v) => v.toFixed(2)).join(", ")}</title>`;
+  return `<svg class="spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="risk over ${points.length} passes, latest ${last.toFixed(2)}">${title}${line}${dot}</svg>`;
+}
 const LEVELS = ["Healthy", "Watch", "Impaired", "Exit now"];
 
 export function escapeHtml(s: string): string {
@@ -62,6 +85,14 @@ export function renderSite(log: SiteLog, o: SiteOptions): string {
     ?? [...latest.values()].sort((a, b) => a.judgment.risk.score - b.judgment.risk.score).map((j) => j.state.label);
   const missing = o.labels.filter((l) => !latest.has(l));
 
+  const history = new Map<string, number[]>();
+  for (const p of all.filter((p) => p.start >= CUTOFF)) {
+    const inPass = new Map<string, Row>();
+    for (const j of log.judgments) if (j.at >= p.start && j.at <= p.end) inPass.set(j.state.label, j);
+    for (const [l, j] of inPass) history.set(l, [...(history.get(l) ?? []), j.judgment.risk.score]);
+  }
+  const since = new Date(CUTOFF * 1000).toISOString().slice(0, 10);
+
   const status = o.health.ok
     ? `<p class="ok">Newest pass complete.</p>`
     : `<p class="bad">Newest pass incomplete: ${escapeHtml(o.health.problems[0] ?? "unknown problem")}</p>`;
@@ -74,11 +105,11 @@ export function renderSite(log: SiteLog, o: SiteOptions): string {
     return `<tr class="vault"><td>${i + 1}</td><th scope="row">${escapeHtml(s.vault_name)}${alloc}</th><td>${escapeHtml(s.chain ?? "ethereum")}</td>
 <td class="n">${money(s.tvl_assets)}</td><td class="n">${s.price_per_share.toFixed(4)}</td><td class="n">${pct(s.liquidity_ratio_now)}</td>
 <td class="n">${j.judgment.risk.score.toFixed(2)} <span class="lvl l${Math.round(j.judgment.risk.score)}">${level(j.judgment.risk.score)}</span></td>
-<td class="n">${pct(j.judgment.stress)}</td><td>${escapeHtml(j.judgment.action.choice)}</td></tr>`;
+<td class="n">${pct(j.judgment.stress)}</td><td>${escapeHtml(j.judgment.action.choice)}</td><td>${riskLine(history.get(label) ?? [])}</td></tr>`;
   });
-  const gone = missing.map((l) => `<tr><td></td><th scope="row">${escapeHtml(l)}</th><td colspan="7">not judged this pass</td></tr>`);
+  const gone = missing.map((l) => `<tr><td></td><th scope="row">${escapeHtml(l)}</th><td colspan="8">not judged this pass</td></tr>`);
 
-  const table = `<table><thead><tr><th>#</th><th>Vault</th><th>Chain</th><th>TVL</th><th>Share price</th><th>Liquidity</th><th>Risk (0-3)</th><th>Stress</th><th>Action</th></tr></thead>
+  const table = `<table><thead><tr><th>#</th><th>Vault</th><th>Chain</th><th>TVL</th><th>Share price</th><th>Liquidity</th><th>Risk (0-3)</th><th>Stress</th><th>Action</th><th>Risk since ${since}</th></tr></thead>
 <tbody>${rows.join("")}${gone.join("")}</tbody></table>`;
 
   const esc = plan
@@ -91,6 +122,7 @@ export function renderSite(log: SiteLog, o: SiteOptions): string {
 <dt>Liquidity</dt><dd>How much of the vault a holder of every share could withdraw right now, found by simulating the withdrawal.</dd>
 <dt>Risk</dt><dd>The model's score on four described levels:</dd>${RISK_LEVELS.map((l) => `<dd>${escapeHtml(l)}</dd>`).join("")}
 <dt>Stress</dt><dd>The model's probability that a prudent allocator would react within a day.</dd>
+<dt>Risk since ${since}</dt><dd>The risk score at each pass from the first pass with measured liquidity and the current rubric. Earlier passes used different inputs and are not comparable, so they are not drawn.</dd>
 <dt>Action</dt><dd>What the model would do with a position: hold, reduce or exit. Nothing is ever executed.</dd></dl>
 <p>Raw record: the <a href="https://github.com/yodablocks/leanvault/tree/shadow-log">shadow-log branch</a>. Code: <a href="https://github.com/yodablocks/leanvault">yodablocks/leanvault</a>.</p>`;
 
@@ -102,5 +134,5 @@ const CSS = `:root{color-scheme:light dark;--fg:#1a1a1a;--bg:#fff;--mute:#666;--
 body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}main{max-width:1000px;margin:auto;padding:1rem}
 table{border-collapse:collapse;width:100%;font-size:14px}th,td{padding:.35rem .5rem;border-bottom:1px solid var(--line);text-align:left}
 td.n{text-align:right;font-variant-numeric:tabular-nums}.frame,.tag,dd{color:var(--mute)}.tag{font-size:12px}
-.ok{color:var(--ok)}.bad{color:var(--bad)}.lvl{font-size:12px}.l2,.l3{color:var(--bad);font-weight:600}
+.ok{color:var(--ok)}.bad{color:var(--bad)}.lvl{font-size:12px}.l2,.l3{color:var(--bad);font-weight:600}.spark{display:block;color:var(--fg)}
 @media (max-width:700px){table{display:block;overflow-x:auto}}`;

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { escapeHtml, renderSite, type SiteLog } from "../src/site";
+import { CUTOFF, escapeHtml, renderSite, riskLine, type SiteLog } from "../src/site";
 
 const T = 1_790_600_000;
 const ok = { ok: true, problems: [], warnings: [], info: [] };
@@ -90,5 +90,49 @@ describe("renderSite", () => {
   // Review Focus 3
   test("a configured vault missing from the pass is listed as not judged", () => {
     expect(renderSite(log(["a", "b"], T), opts)).toContain("not judged this pass");
+  });
+});
+
+
+describe("riskLine", () => {
+  test("no points draws nothing", () => expect(riskLine([])).toBe(""));
+  // Review Focus 4
+  test("one point is a dot, not NaN", () => {
+    const svg = riskLine([1.2]);
+    expect(svg).toContain("<circle");
+    expect(svg).not.toContain("NaN");
+  });
+  // Review Focus 5
+  test("a flat series is a flat line, not NaN", () => {
+    const svg = riskLine([0.4, 0.4, 0.4]);
+    expect(svg).toContain("<polyline");
+    expect(svg).not.toContain("NaN");
+  });
+  test("the scale is fixed 0 to 3, so lines are comparable across vaults", () => {
+    expect(riskLine([0, 3])).toBe(riskLine([0, 3]));
+    expect(riskLine([0, 3])).not.toBe(riskLine([1, 2]));
+  });
+});
+
+describe("history in rows", () => {
+  test("only passes at or after the cutoff are drawn", () => {
+    const before = log(["a"], CUTOFF - 6 * 3600);
+    const after = log(["a"], CUTOFF + 3600);
+    before.judgments[0]!.judgment.risk.score = 2.9;
+    const merged: SiteLog = {
+      snapshots: [...before.snapshots, ...after.snapshots],
+      judgments: [...before.judgments, ...after.judgments],
+      proposals: [...before.proposals, ...after.proposals],
+    };
+    const html = renderSite(merged, { ...opts, labels: ["a"], now: CUTOFF + 4000 });
+    expect(html).toContain("<circle"); // one post-cutoff point only
+    expect(html).not.toContain("<polyline");
+  });
+});
+
+describe("riskLine tooltip", () => {
+  test("a title gives the values on hover, since the page runs no script", () => {
+    expect(riskLine([0.4, 1.9])).toContain("<title>");
+    expect(riskLine([0.4, 1.9])).toContain("1.90");
   });
 });
