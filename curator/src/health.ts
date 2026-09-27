@@ -8,7 +8,7 @@
 
 export interface HealthLog {
   snapshots: { label: string; timestamp: number }[];
-  judgments: { at: number; state: { label: string; observed_days: number; aggregator?: { listed: boolean } } }[];
+  judgments: { at: number; state: { label: string; observed_days: number; liquidity_ratio_now?: number | null; aggregator?: { listed: boolean } } }[];
   proposals: { at: number }[];
 }
 
@@ -116,6 +116,10 @@ export function checkHealth(log: HealthLog, o: HealthOptions): Health {
 
     const planned = log.proposals.some((p) => p.at / 1000 >= newest.start && p.at / 1000 <= newest.end + PLAN_WINDOW_S);
     if (!planned) problems.push("no plan written for the newest pass");
+
+    if (judged.every((j) => j.state.liquidity_ratio_now == null)) {
+      problems.push("liquidity unmeasured for every vault: the probe failed, or the endpoint lacks eth_createAccessList or state overrides");
+    }
 
     if (judged.every((j) => j.state.aggregator === undefined)) {
       problems.push("no DefiLlama data in the newest pass: the index was unreachable");
