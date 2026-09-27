@@ -68,6 +68,18 @@ contract GasBenchmark is Test {
     function test_gas_idle_convertToShares() public {
         vm.prank(alice); idle.deposit(10000e18, alice); idle.convertToShares(1000e18);
     }
+    function test_gas_idle_permit() public {
+        uint256 pk = 0xA11CE;
+        bytes32 structHash = keccak256(
+            abi.encode(
+                keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
+                vm.addr(pk), alice, 1000e18, 0, block.timestamp
+            )
+        );
+        (uint8 v, bytes32 r, bytes32 s) =
+            vm.sign(pk, keccak256(abi.encodePacked("\x19\x01", idle.DOMAIN_SEPARATOR(), structHash)));
+        idle.permit(vm.addr(pk), alice, 1000e18, block.timestamp, v, r, s);
+    }
     function test_gas_yield_convertToShares() public {
         vm.prank(alice); yieldVault.deposit(10000e18, alice); yieldVault.convertToShares(1000e18);
     }
