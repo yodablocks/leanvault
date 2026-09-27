@@ -23,7 +23,7 @@ Every yield vault needs an accounting layer before the interesting part starts, 
 | **Supply written once** | The share token is minimal and reads its supply from the packed word, so a deposit updates supply in the same write as the totals. |
 | **Virtual share** | One virtual share and one virtual asset in the price formula, the way Solady defends against inflation. No storage write on the first deposit. Donations never move the price anyway, since the vault never reads its own balance. |
 | **Owner** | One slot, one transfer function, no handover machinery, no payable functions. |
-| **Permit** | EIP-2612 on the share token, so a holder can approve a router or a zap with a signature instead of a transaction. The EIP-712 domain is cached at deployment and recomputed if the chain id changes, so a signature made before a fork is void after it. Plain `ecrecover`, no assembly. |
+| **Permit** | EIP-2612 on the share token, so a holder can approve a router or a zap with a signature instead of a transaction. The EIP-712 domain is cached at deployment and recomputed if the chain id changes, so a signature made before a fork is void after it. Plain `ecrecover` with the EIP-2 low-s bound, so each approval has one valid signature, no assembly. |
 | **Rounding** | Deposit and redeem round down what the user gets, mint and withdraw round up what the user pays. Previews equal the real calls. |
 
 Not in it: any fee. That is the roadmap.
@@ -41,11 +41,11 @@ From [erc4626-bench](https://github.com/yodablocks/erc4626-bench), per transacti
 | `redeem()` | 53,126 | 53,284 |
 | `totalAssets()` | 2,321 | 5,621 |
 | `convertToShares()` | 3,002 | 8,072 |
-| Deployment gas | 2,009,524\* | 1,185,598 |
+| Deployment gas | 2,028,655\* | 1,185,598 |
 
-\* Measured in this repository with `forge test --gas-report`, after `permit` was added. The benchmark's copy predates it and deploys for 1,764,437; `permit` added 250,872 gas and 1,332 bytes of runtime code. Every per-call row above was unchanged by it.
+\* Measured in this repository with `forge test --gas-report`, after `permit` was added. The benchmark's copy predates it and deploys for 1,764,437; `permit` added 270,003 gas and 1,422 bytes of runtime code. Every per-call row above was unchanged by it.
 
-Both columns now carry `permit`, so the gap in deployment is not a missing feature. Solady writes its ERC20 and ERC4626 in inline assembly; this vault is plain Solidity and also carries a pause switch, an owner and a reentrancy guard. That is the trade: about 70% more to deploy, once, for code a reviewer can read line by line. Everything a user repeats costs the same or less here. A signed `permit` costs 73,889 gas the first time a holder uses it, most of it two cold storage writes (the nonce and the allowance).
+Both columns now carry `permit`, so the gap in deployment is not a missing feature. Solady writes its ERC20 and ERC4626 in inline assembly; this vault is plain Solidity and also carries a pause switch, an owner and a reentrancy guard. That is the trade: about 70% more to deploy, once, for code a reviewer can read line by line. Everything a user repeats costs the same or less here. A signed `permit` costs 73,915 gas the first time a holder uses it, most of it two cold storage writes (the nonce and the allowance).
 
 ## The yield vault
 
