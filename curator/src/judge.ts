@@ -90,7 +90,7 @@ export function buildState(snap: Snapshot, sig: Signals, agg: Aggregator | null 
 export const RISK_LEVELS = [
   "Healthy: yield steady and positive, deposits stable or growing, no price drops, liquidity ample.",
   "Watch: something moved but nothing broke, such as a noticeable outflow of deposits, yield well below the norm for this kind of vault, or thin liquidity that would delay a large withdrawal.",
-  "Impaired: the share price fell in a single step, or liquidity is so thin that most depositors could not exit, or yield turned negative over the window.",
+  "Impaired: the share price is below 1, so depositors hold less than they put in, however liquid the vault is; or the share price fell in a single step; or liquidity is so thin that most depositors could not exit; or yield turned negative over the window.",
   "Exit now: the vault has lost a material part of its assets, or withdrawals are effectively frozen, or the share price or accounting is inconsistent with a functioning stablecoin vault.",
 ] as const;
 
@@ -98,7 +98,7 @@ export const questions = {
   stress: {
     type: "noul",
     instructions:
-      "Does this ERC4626 vault show signs of stress that a prudent allocator would react to within the next day? Judge from the observed numbers only: deposit outflows, a falling or negative yield, a drop in share price, a share price that lending yield could not explain, thin liquidity, or a fee out of line with a passive vault. A null field means the value is not observable, not that it is zero. A short observation window alone is not stress. The aggregator fields come from DefiLlama, a third-party index with weeks of history: a large vault it does not list at all is unusual, and a 30-day yield far above what stablecoin lending pays, or flagged as an outlier, deserves suspicion.",
+      "Does this ERC4626 vault show signs of stress that a prudent allocator would react to within the next day? Judge from the observed numbers only: deposit outflows, a falling or negative yield, a drop in share price, a share price below 1 (a loss depositors already carry, whatever the liquidity), a share price that lending yield could not explain, thin liquidity, or a fee out of line with a passive vault. A null field means the value is not observable, not that it is zero. A short observation window alone is not stress. The aggregator fields come from DefiLlama, a third-party index with weeks of history: a large vault it does not list at all is unusual, and a 30-day yield far above what stablecoin lending pays, or flagged as an outlier, deserves suspicion.",
   },
   risk: {
     type: "score",
