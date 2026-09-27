@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildState, judge, questions } from "../src/judge";
+import { buildState, judge, questions, RISK_LEVELS } from "../src/judge";
 import { signals, type Snapshot } from "../src/observe";
 
 function snap(o: Partial<Snapshot>): Snapshot {
@@ -30,6 +30,16 @@ describe("buildState", () => {
     expect(buildState(snap({ pricePerShare: 822 }), sig).is_price_per_share_implausible).toBe(true);
     expect(buildState(snap({ pricePerShare: 0.83 }), sig).is_price_per_share_implausible).toBe(false);
     expect(buildState(snap({ pricePerShare: 0.83 }), sig).is_price_per_share_below_one).toBe(true);
+  });
+});
+
+describe("rubric", () => {
+  // Gauntlet USDC Core sits at 0.83 per share with 83% liquidity. Rated only by
+  // the step and liquidity wording, it came out safer once liquidity was measured.
+  test("a share price below one is impaired however liquid the vault is", () => {
+    expect(RISK_LEVELS[2]).toMatch(/below 1/);
+    expect(RISK_LEVELS[2]).toMatch(/however liquid/);
+    expect(questions.stress.instructions).toMatch(/below 1/);
   });
 });
 
