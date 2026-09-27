@@ -59,6 +59,13 @@ const ago = (s: number) => (s < 3600 ? `${Math.round(s / 60)} min ago` : `${(s /
 
 type Row = SiteLog["judgments"][number];
 
+/** Escalations start with the internal label ("fluid-usdc: ..."); show the vault's name and chain instead. */
+function plainEscalation(e: string, latest: Map<string, Row>): string {
+  const i = e.indexOf(": ");
+  const j = i > 0 ? latest.get(e.slice(0, i)) : undefined;
+  return j ? `${j.state.vault_name} (${j.state.chain ?? "ethereum"})${e.slice(i)}` : e;
+}
+
 function page(body: string): string {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -114,7 +121,7 @@ export function renderSite(log: SiteLog, o: SiteOptions): string {
 
   const esc = plan
     ? plan.escalations.length
-      ? `<ul>${plan.escalations.map((e) => `<li>${escapeHtml(e)}</li>`).join("")}</ul>`
+      ? `<ul>${plan.escalations.map((e) => `<li>${escapeHtml(plainEscalation(e, latest))}</li>`).join("")}</ul>`
       : `<p>Nothing this pass.</p>`
     : `<p>No plan was written for this pass.</p>`;
 
@@ -123,6 +130,7 @@ export function renderSite(log: SiteLog, o: SiteOptions): string {
 <dt>Risk</dt><dd>The model's score on four described levels:</dd>${RISK_LEVELS.map((l) => `<dd>${escapeHtml(l)}</dd>`).join("")}
 <dt>Stress</dt><dd>The model's probability that a prudent allocator would react within a day.</dd>
 <dt>Risk since ${since}</dt><dd>The risk score at each pass from the first pass with measured liquidity and the current rubric. Earlier passes used different inputs and are not comparable, so they are not drawn.</dd>
+<dt>Would escalate to a person</dt><dd>The policy's reasons to hand a decision to a human instead of acting: the model is not confident enough (confidence below 0.6), it chose exit, or its stress probability is above 0.7.</dd>
 <dt>Action</dt><dd>What the model would do with a position: hold, reduce or exit. Nothing is ever executed.</dd></dl>
 <p>Raw record: the <a href="https://github.com/yodablocks/leanvault/tree/shadow-log">shadow-log branch</a>. Code: <a href="https://github.com/yodablocks/leanvault">yodablocks/leanvault</a>.</p>`;
 
@@ -133,6 +141,6 @@ const CSS = `:root{color-scheme:light dark;--fg:#1a1a1a;--bg:#fff;--mute:#666;--
 @media (prefers-color-scheme:dark){:root{--fg:#e6e6e6;--bg:#111;--mute:#999;--line:#333;--ok:#3fb950;--bad:#f85149}}
 body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}main{max-width:1000px;margin:auto;padding:1rem}
 table{border-collapse:collapse;width:100%;font-size:14px}th,td{padding:.35rem .5rem;border-bottom:1px solid var(--line);text-align:left}
-td.n{text-align:right;font-variant-numeric:tabular-nums}.frame,.tag,dd{color:var(--mute)}.tag{font-size:12px}
+td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.frame,.tag,dd{color:var(--mute)}.tag{font-size:12px}
 .ok{color:var(--ok)}.bad{color:var(--bad)}.lvl{font-size:12px}.l2,.l3{color:var(--bad);font-weight:600}.spark{display:block;color:var(--fg)}
 @media (max-width:700px){table{display:block;overflow-x:auto}}`;

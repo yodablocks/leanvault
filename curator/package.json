@@ -9,6 +9,7 @@
     "judge": "bun run src/cli.ts judge",
     "shadow": "bun run src/cli.ts shadow",
     "health": "bun run src/cli.ts health",
+    "site": "bun run src/cli.ts site",
     "test": "bun test"
   },
   "engines": { "bun": ">=1.1" }

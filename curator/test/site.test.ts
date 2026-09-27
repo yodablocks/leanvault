@@ -136,3 +136,14 @@ describe("riskLine tooltip", () => {
     expect(riskLine([0.4, 1.9])).toContain("1.90");
   });
 });
+
+describe("escalations in plain words", () => {
+  test("the internal label is replaced by the vault's name and chain", () => {
+    const html = renderSite(log(["a"], T, { escalations: ["a: risk confidence 0.40 below 0.6"] }), { ...opts, labels: ["a"] });
+    expect(html).toContain("Vault a (ethereum): risk confidence 0.40 below 0.6");
+    expect(html).not.toContain("<li>a: ");
+  });
+  test("how to read this explains what an escalation is", () => {
+    expect(renderSite(log(["a"], T), { ...opts, labels: ["a"] })).toMatch(/<dt>Would escalate/);
+  });
+});
