@@ -9,4 +9,5 @@ anvil-zksync.log
 # curator
 curator/node_modules/
 curator/data/
+curator/site/
 curator/.env

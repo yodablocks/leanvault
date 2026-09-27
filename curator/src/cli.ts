@@ -6,6 +6,8 @@ import { plan } from "./allocate";
 import { append, history, readAll } from "./store";
 import { aggregatorFor, fetchLlamaPools } from "./llama";
 import { checkHealth, type HealthLog } from "./health";
+import { renderSite } from "./site";
+import { mkdir, writeFile } from "node:fs/promises";
 
 const cmd = process.argv[2] ?? "shadow";
 
@@ -85,7 +87,29 @@ if (cmd === "observe") {
   for (const l of h.problems) console.log("problem: " + l);
   console.log(h.ok ? "healthy" : "unhealthy");
   if (!h.ok) process.exit(1);
+} else if (cmd === "site") {
+  // The public page, from the log alone: no chain or model calls.
+  const log = {
+    snapshots: await readAll<any>("snapshots.jsonl"),
+    judgments: await readAll<any>("judgments.jsonl"),
+    proposals: await readAll<any>("proposals.jsonl"),
+  };
+  const now = Math.floor(Date.now() / 1000);
+  const labels = config.strategies.map((s) => s.label);
+  const health = checkHealth(log, {
+    labels,
+    pooled: config.strategies.filter((s) => s.llamaPool).map((s) => s.label),
+    maxGapHours: 18,
+    warnGapHours: 9,
+    now,
+    mode: "pass",
+  });
+  const out = (process.argv[3] ?? new URL("../site/", import.meta.url).pathname).replace(/\/?$/, "/");
+  await mkdir(out, { recursive: true });
+  const allocated = config.strategies.filter((s) => s.allocate).map((s) => s.label);
+  await writeFile(out + "index.html", renderSite(log, { labels, allocated, now, health, thresholds: config.thresholds }));
+  console.log(`wrote ${out}index.html`);
 } else {
-  console.error("usage: bun run src/cli.ts observe|judge|shadow|health [--age]");
+  console.error("usage: bun run src/cli.ts observe|judge|shadow|health [--age]|site [outDir]");
   process.exit(2);
 }
