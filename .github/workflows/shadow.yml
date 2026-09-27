@@ -77,3 +77,10 @@ jobs:
           git add -A
           git commit -q -m "shadow pass $(date -u +%Y-%m-%dT%H:%MZ)" || { echo "nothing new"; exit 0; }
           git push -q origin shadow-log
+
+      # After the append, so an unhealthy pass is still recorded. A red run here
+      # means the pass is incomplete: a vault unjudged, no plan, DefiLlama down,
+      # the history not restored, or the key missing and snapshots taken alone.
+      - name: Check the pass
+        working-directory: curator
+        run: bun run src/cli.ts health
