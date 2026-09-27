@@ -190,14 +190,14 @@ Done, in the order it happened:
 - Many strategies: `LeanAllocatorVault`, with the curator's authority bounded on-chain by a timelocked allowlist, caps and a per-window rebalance limit.
 - The curator: `curator/`, watching 22 USDC vaults on Ethereum and Base, judging with Jev, logging what it would do. Runs every six hours on GitHub and appends to the `shadow-log` branch.
 - `permit` on the share token, and the gas table re-measured against the vault as shipped.
+- A [live page](https://yodablocks.github.io/leanvault/) for the shadow log, rebuilt after every pass.
 - A record worth trusting: every pass checked for completeness, liquidity measured by simulation instead of guessed, a share price below 1 named as impairment in the rubric, and two watchdogs on the schedule, one of them outside GitHub.
 
-**Now.** The shadow curator runs every six hours on 22 real USDC vaults. Liquidity has been measured and the rubric set since 2026-09-27, so the record counts from that date.
+**Now.** The shadow curator runs every six hours on 22 real USDC vaults, and its latest judgments are live at [yodablocks.github.io/leanvault](https://yodablocks.github.io/leanvault/). Liquidity has been measured and the rubric set since 2026-09-27, so the record counts from that date.
 
 **Next.**
 
-1. **A live page for the shadow log**: the current ranking, each vault's health and liquidity over time, and what the agent would escalate, rebuilt after every pass.
-2. **Real strategies on a testnet.** Deploy `LeanAllocatorVault` against strategies that exist there, harvest for a week, and let the curator watch a vault it could actually move.
+1. **Real strategies on a testnet.** Deploy `LeanAllocatorVault` against strategies that exist there, harvest for a week, and let the curator watch a vault it could actually move.
 
 **Later.**
 
