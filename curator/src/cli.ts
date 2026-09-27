@@ -107,7 +107,7 @@ if (cmd === "observe") {
   const out = (process.argv[3] ?? new URL("../site/", import.meta.url).pathname).replace(/\/?$/, "/");
   await mkdir(out, { recursive: true });
   const allocated = config.strategies.filter((s) => s.allocate).map((s) => s.label);
-  await writeFile(out + "index.html", renderSite(log, { labels, allocated, now, health }));
+  await writeFile(out + "index.html", renderSite(log, { labels, allocated, now, health, thresholds: config.thresholds }));
   console.log(`wrote ${out}index.html`);
 } else {
   console.error("usage: bun run src/cli.ts observe|judge|shadow|health [--age]|site [outDir]");

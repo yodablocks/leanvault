@@ -147,3 +147,34 @@ describe("escalations in plain words", () => {
     expect(renderSite(log(["a"], T), { ...opts, labels: ["a"] })).toMatch(/<dt>Would escalate/);
   });
 });
+
+describe("final review fixes", () => {
+  test("a judged vault the plan's ranking lacks still gets a row", () => {
+    const l = log(["a", "b"], T, { ranking: ["a"] });
+    const html = renderSite(l, { ...opts, labels: ["a", "b"] });
+    expect(html).toContain("Vault b");
+    expect(html.split('<tr class="vault"').length - 1).toBe(2);
+  });
+
+  test("a stale newest pass shows its warning, not a bare green", () => {
+    const stale = { ok: true, problems: [], warnings: ["newest pass is 10.3h old"], info: [] };
+    const html = renderSite(log(["a"], T), { ...opts, labels: ["a"], health: stale });
+    expect(html).toContain("newest pass is 10.3h old");
+    expect(html).not.toContain("Newest pass complete.");
+  });
+
+  test("the ranking order is explained, and the risk fallback says so", () => {
+    expect(renderSite(log(["a"], T), { ...opts, labels: ["a"] })).toMatch(/<dt>Ranking<\/dt><dd>[^<]*weight/);
+    expect(renderSite(log(["a"], T, { noPlan: true }), { ...opts, labels: ["a"] })).toContain("ordered by risk score");
+  });
+
+  test("escalation thresholds come from the config and say 'or more' for stress", () => {
+    const html = renderSite(log(["a"], T), { ...opts, labels: ["a"], thresholds: { minConfidence: 0.55, stressExit: 0.75 } });
+    expect(html).toContain("below 0.55");
+    expect(html).toContain("0.75 or more");
+  });
+
+  test("the rubric source is linked", () => {
+    expect(renderSite(log(["a"], T), { ...opts, labels: ["a"] })).toContain("curator/src/judge.ts");
+  });
+});

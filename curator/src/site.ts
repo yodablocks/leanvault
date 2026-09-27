@@ -20,6 +20,8 @@ export interface SiteOptions {
   /** Seconds. */
   now: number;
   health: Health;
+  /** The policy's escalation thresholds, from config.thresholds. */
+  thresholds?: { minConfidence: number; stressExit: number };
 }
 
 const PLAN_WINDOW_S = 15 * 60;
@@ -88,8 +90,11 @@ export function renderSite(log: SiteLog, o: SiteOptions): string {
     if (!prev || j.at >= prev.at) latest.set(j.state.label, j);
   }
   const plan = [...log.proposals].reverse().find((p) => p.at / 1000 >= newest.start && p.at / 1000 <= newest.end + PLAN_WINDOW_S)?.plan;
-  const order = plan?.ranking?.map((r) => r.label).filter((l) => latest.has(l))
-    ?? [...latest.values()].sort((a, b) => a.judgment.risk.score - b.judgment.risk.score).map((j) => j.state.label);
+  // The plan's order first; any judged vault it lacks, and every vault when no
+  // plan was written, follows by risk score, lowest first.
+  const byRisk = [...latest.values()].sort((a, b) => a.judgment.risk.score - b.judgment.risk.score).map((j) => j.state.label);
+  const ranked = plan?.ranking?.map((r) => r.label).filter((l) => latest.has(l)) ?? [];
+  const order = [...ranked, ...byRisk.filter((l) => !ranked.includes(l))];
   const missing = o.labels.filter((l) => !latest.has(l));
 
   const history = new Map<string, number[]>();
@@ -100,9 +105,13 @@ export function renderSite(log: SiteLog, o: SiteOptions): string {
   }
   const since = new Date(CUTOFF * 1000).toISOString().slice(0, 10);
 
-  const status = o.health.ok
-    ? `<p class="ok">Newest pass complete.</p>`
-    : `<p class="bad">Newest pass incomplete: ${escapeHtml(o.health.problems[0] ?? "unknown problem")}</p>`;
+  const status = !o.health.ok
+    ? `<p class="bad">Newest pass incomplete: ${escapeHtml(o.health.problems[0] ?? "unknown problem")}</p>`
+    : o.health.warnings.length
+      ? `<p class="warn">Warning: ${escapeHtml(o.health.warnings[0]!)}</p>`
+      : `<p class="ok">Newest pass complete.</p>`;
+  const th = o.thresholds ?? { minConfidence: 0.6, stressExit: 0.7 };
+  const orderNote = plan?.ranking ? "" : `<p>No plan was written for this pass, so the table is ordered by risk score, lowest first.</p>`;
   const when = `<p>Newest pass ${new Date(newest.start * 1000).toISOString().slice(0, 16).replace("T", " ")} UTC, ${ago(o.now - newest.end)}.</p>`;
 
   const rows = order.map((label, i) => {
@@ -126,21 +135,22 @@ export function renderSite(log: SiteLog, o: SiteOptions): string {
     : `<p>No plan was written for this pass.</p>`;
 
   const read = `<h2>How to read this</h2><dl>
+<dt>Ranking</dt><dd>The order the policy would allocate in: a weight from each vault's yield, risk score and stress, highest first. Vaults it did not rank follow by risk score. It is not a verdict on the teams behind the vaults.</dd>
 <dt>Liquidity</dt><dd>How much of the vault a holder of every share could withdraw right now, found by simulating the withdrawal.</dd>
-<dt>Risk</dt><dd>The model's score on four described levels:</dd>${RISK_LEVELS.map((l) => `<dd>${escapeHtml(l)}</dd>`).join("")}
+<dt>Risk</dt><dd>The model's score on four described levels (<a href="https://github.com/yodablocks/leanvault/blob/main/curator/src/judge.ts">rubric source, curator/src/judge.ts</a>):</dd>${RISK_LEVELS.map((l) => `<dd>${escapeHtml(l)}</dd>`).join("")}
 <dt>Stress</dt><dd>The model's probability that a prudent allocator would react within a day.</dd>
 <dt>Risk since ${since}</dt><dd>The risk score at each pass from the first pass with measured liquidity and the current rubric. Earlier passes used different inputs and are not comparable, so they are not drawn.</dd>
-<dt>Would escalate to a person</dt><dd>The policy's reasons to hand a decision to a human instead of acting: the model is not confident enough (confidence below 0.6), it chose exit, or its stress probability is above 0.7.</dd>
+<dt>Would escalate to a person</dt><dd>The policy's reasons to hand a decision to a human instead of acting: the model is not confident enough (confidence below ${th.minConfidence}), it chose exit, or its stress probability is ${th.stressExit} or more.</dd>
 <dt>Action</dt><dd>What the model would do with a position: hold, reduce or exit. Nothing is ever executed.</dd></dl>
 <p>Raw record: the <a href="https://github.com/yodablocks/leanvault/tree/shadow-log">shadow-log branch</a>. Code: <a href="https://github.com/yodablocks/leanvault">yodablocks/leanvault</a>.</p>`;
 
-  return page(`${intro}${status}${when}<h2>Ranking</h2>${table}<h2>Would escalate to a person</h2>${esc}${read}`);
+  return page(`${intro}${status}${when}<h2>Ranking</h2>${orderNote}${table}<h2>Would escalate to a person</h2>${esc}${read}`);
 }
 
-const CSS = `:root{color-scheme:light dark;--fg:#1a1a1a;--bg:#fff;--mute:#666;--line:#ddd;--ok:#1a7f37;--bad:#b42318}
-@media (prefers-color-scheme:dark){:root{--fg:#e6e6e6;--bg:#111;--mute:#999;--line:#333;--ok:#3fb950;--bad:#f85149}}
+const CSS = `:root{color-scheme:light dark;--fg:#1a1a1a;--bg:#fff;--mute:#666;--line:#ddd;--ok:#1a7f37;--bad:#b42318;--warn:#9a6700}
+@media (prefers-color-scheme:dark){:root{--fg:#e6e6e6;--bg:#111;--mute:#999;--line:#333;--ok:#3fb950;--bad:#f85149;--warn:#d29922}}
 body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}main{max-width:1000px;margin:auto;padding:1rem}
 table{border-collapse:collapse;width:100%;font-size:14px}th,td{padding:.35rem .5rem;border-bottom:1px solid var(--line);text-align:left}
 td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.frame,.tag,dd{color:var(--mute)}.tag{font-size:12px}
-.ok{color:var(--ok)}.bad{color:var(--bad)}.lvl{font-size:12px}.l2,.l3{color:var(--bad);font-weight:600}.spark{display:block;color:var(--fg)}
+.ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}.lvl{font-size:12px}.l2,.l3{color:var(--bad);font-weight:600}.spark{display:block;color:var(--fg)}
 @media (max-width:700px){table{display:block;overflow-x:auto}}`;
