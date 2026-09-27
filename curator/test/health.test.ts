@@ -9,14 +9,15 @@ const pooled = ["eth-a", "base-c"];
 // One pass shaped like the real log: snapshot and judgment times are block
 // timestamps in seconds, base about ten seconds after ethereum; the proposal
 // time is Date.now() in milliseconds, a few seconds after the last judgment.
-function pass(start: number, observedDays: number, o: { drop?: string[]; noJudge?: boolean; noPlan?: boolean; noLlama?: boolean; delisted?: string[] } = {}): HealthLog {
+function pass(start: number, observedDays: number, o: { drop?: string[]; noJudge?: boolean; noPlan?: boolean; noLlama?: boolean; delisted?: string[]; noLiquidity?: boolean } = {}): HealthLog {
   const log: HealthLog = { snapshots: [], judgments: [], proposals: [] };
   for (const label of labels) {
     const ts = label.startsWith("base") ? start + 10 : start;
     log.snapshots.push({ label, timestamp: ts });
     if (o.noJudge || o.drop?.includes(label)) continue;
     const aggregator = o.noLlama ? undefined : { listed: pooled.includes(label) && !o.delisted?.includes(label) };
-    log.judgments.push({ at: ts, state: { label, observed_days: observedDays, ...(aggregator ? { aggregator } : {}) } });
+    const liquidity_ratio_now = o.noLiquidity ? null : 0.7;
+    log.judgments.push({ at: ts, state: { label, observed_days: observedDays, liquidity_ratio_now, ...(aggregator ? { aggregator } : {}) } });
   }
   if (!o.noPlan && !o.noJudge) log.proposals.push({ at: (start + 40) * 1000 });
   return log;
@@ -80,6 +81,11 @@ describe("checkHealth after a pass", () => {
   test("a pinned pool that DefiLlama no longer lists is named", () => {
     const h = checkHealth(join(pass(T0, 0.1), pass(T0 + 6 * H, 0.35, { delisted: ["base-c"] })), { ...opts, now: T0 + 6 * H, mode: "pass" });
     expect(h.problems.some((p) => p.includes("base-c") && p.includes("pool"))).toBe(true);
+  });
+
+  test("liquidity unmeasured for every vault means the probe is broken, not the vaults", () => {
+    const h = checkHealth(join(pass(T0, 0.1), pass(T0 + 6 * H, 0.35, { noLiquidity: true })), { ...opts, now: T0 + 6 * H, mode: "pass" });
+    expect(h.problems.join("\n")).toMatch(/liquidity/);
   });
 
   test("a vault whose observed window did not grow means the history was not restored", () => {
