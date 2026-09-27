@@ -189,13 +189,21 @@ Done, in the order it happened:
 - One strategy: `LeanYieldVault`, permissionless harvest with gains streamed and losses taken at once.
 - Many strategies: `LeanAllocatorVault`, with the curator's authority bounded on-chain by a timelocked allowlist, caps and a per-window rebalance limit.
 - The curator: `curator/`, watching 22 USDC vaults on Ethereum and Base, judging with Jev, logging what it would do. Runs every six hours on GitHub and appends to the `shadow-log` branch.
+- `permit` on the share token, and the gas table re-measured against the vault as shipped.
+- A record worth trusting: every pass checked for completeness, liquidity measured by simulation instead of guessed, a share price below 1 named as impairment in the rubric, and two watchdogs on the schedule, one of them outside GitHub.
 
-Next, in order:
+**Now.** The shadow curator runs every six hours on 22 real USDC vaults. Liquidity has been measured and the rubric set since 2026-09-27, so the record counts from that date.
 
-1. **Let the log accumulate.** Weeks of passes every six hours, then a comparison of the agent's proposals with what a human curator would have done. Only that record decides whether the agent gets the allocator key.
+**Next.**
+
+1. **A live page for the shadow log**: the current ranking, each vault's health and liquidity over time, and what the agent would escalate, rebuilt after every pass.
 2. **Real strategies on a testnet.** Deploy `LeanAllocatorVault` against strategies that exist there, harvest for a week, and let the curator watch a vault it could actually move.
-3. **ERC-7540** request-based deposits and redemptions for anything with lockups.
-4. **An external audit**, before any real funds. Nothing in this repository is a substitute for one.
+
+**Later.**
+
+1. **Compare the record with a human curator.** Weeks of the agent's proposals against what a human curator would have done. Only that record decides whether the agent gets the allocator key.
+2. **ERC-7540** request-based deposits and redemptions for anything with lockups.
+3. **An external audit**, before any real funds. Nothing in this repository is a substitute for one.
 
 ## License
 
