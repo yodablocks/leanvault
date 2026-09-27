@@ -2,7 +2,7 @@
 
 **The cheapest ERC4626 accounting shell we could write in plain Solidity, a yield vault built on it, and a multi-strategy allocator whose curator can be wrong without being able to drain it.**
 
-leanvault keeps the two totals and the pause flag in one storage slot, puts the reentrancy guard in transient storage, writes the share supply once, and replaces the first-deposit burn with a virtual share in the price formula. No assembly anywhere. Per transaction it sits within 0.2% of Solady's ERC4626 on every repeated call while carrying a pause switch and a reentrancy guard that the baseline lacks, its views cost a third as much, and on EraVM it is the cheapest of the five vaults in [erc4626-bench](https://github.com/yodablocks/erc4626-bench) on every row.
+leanvault keeps the two totals and the pause flag in one storage slot, puts the reentrancy guard in transient storage, writes the share supply once, and replaces the first-deposit burn with a virtual share in the price formula. No assembly anywhere. Per transaction it costs at most 0.3% more than Solady's ERC4626 on a deposit or mint and less on withdraw and redeem, while carrying a pause switch and a reentrancy guard that the baseline lacks; its views cost a third as much, and on EraVM it is 1.3 to 3.7% cheaper than Solady on every write in [erc4626-bench](https://github.com/yodablocks/erc4626-bench).
 
 ![Solidity](https://img.shields.io/badge/Solidity-0.8.37-363636?logo=solidity&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
@@ -30,22 +30,24 @@ Not in it: any fee. That is the roadmap.
 
 ## Gas
 
-From [erc4626-bench](https://github.com/yodablocks/erc4626-bench), per transaction, solc 0.8.37, optimizer at 10,000,000 runs:
+From [erc4626-bench](https://github.com/yodablocks/erc4626-bench), column Lean3, which is this repository's `LeanVault` copied as shipped. Per transaction, solc 0.8.37, optimizer at 10,000,000 runs:
 
 | Call | leanvault | Solady ERC4626 |
 |---|---|---|
 | `deposit()` first, cold vault | 106,096 | 106,009 |
 | `deposit()` subsequent | 54,796 | 54,709 |
-| `mint()` | 54,843 | 54,735 |
-| `withdraw()` | 53,264 | 54,576 |
-| `redeem()` | 53,126 | 53,284 |
+| `mint()` | 54,877 | 54,735 |
+| `withdraw()` | 53,303 | 54,576 |
+| `redeem()` | 53,160 | 53,284 |
 | `totalAssets()` | 2,321 | 5,621 |
 | `convertToShares()` | 3,002 | 8,072 |
-| Deployment gas | 2,028,655\* | 1,185,598 |
+| `convertToAssets()` | 3,104 | 8,108 |
+| `permit()` | 73,903 | 76,296 |
+| Deployment gas | 2,028,691 | 1,185,598 |
 
-\* Measured in this repository with `forge test --gas-report`, after `permit` was added. The benchmark's copy predates it and deploys for 1,764,437; `permit` added 270,003 gas and 1,422 bytes of runtime code. Every per-call row above was unchanged by it.
+On EraVM, from receipts on `anvil-zksync`, the same vault costs 171,152 on a first deposit against Solady's 173,466, and 161,122 on a withdraw against 167,356. The benchmark's other columns show what each design choice costs; its Lean2 is this vault before the hooks and `permit`.
 
-Both columns now carry `permit`, so the gap in deployment is not a missing feature. Solady writes its ERC20 and ERC4626 in inline assembly; this vault is plain Solidity and also carries a pause switch, an owner and a reentrancy guard. That is the trade: about 70% more to deploy, once, for code a reviewer can read line by line. Everything a user repeats costs the same or less here. A signed `permit` costs 73,915 gas the first time a holder uses it, most of it two cold storage writes (the nonce and the allowance).
+Both columns now carry `permit`, so the gap in deployment is not a missing feature. Solady writes its ERC20 and ERC4626 in inline assembly; this vault is plain Solidity and also carries a pause switch, an owner and a reentrancy guard. That is the trade: about 70% more to deploy, once, for code a reviewer can read line by line. On what a user repeats, deposits and mint cost 87 to 142 gas more than Solady, withdraw and redeem cost 124 to 1,273 less, and views a third as much. A signed `permit` runs 2,393 gas cheaper than Solady's, most of its cost two cold storage writes (the nonce and the allowance).
 
 ## The yield vault
 
