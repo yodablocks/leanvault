@@ -84,3 +84,41 @@ jobs:
       - name: Check the pass
         working-directory: curator
         run: bun run src/cli.ts health
+
+  # The public page, rebuilt from the log after every pass, whatever the pass
+  # did: after a failed pass it shows the older pass, its age and red health.
+  # Its own job, so a failed build or deploy never touches the pass.
+  page:
+    name: Publish the page
+    needs: shadow
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Read the log
+        run: |
+          mkdir -p "$RUNNER_TEMP/log"
+          git fetch --depth=1 origin shadow-log
+          for f in snapshots judgments proposals; do
+            git show origin/shadow-log:$f.jsonl > "$RUNNER_TEMP/log/$f.jsonl"
+          done
+      - name: Build
+        working-directory: curator
+        env:
+          CURATOR_DATA_DIR: ${{ runner.temp }}/log
+        run: bun run src/cli.ts site "$RUNNER_TEMP/site"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/site
+      - id: deploy
+        uses: actions/deploy-pages@v4
