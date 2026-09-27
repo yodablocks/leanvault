@@ -20,10 +20,18 @@ cp .env.example .env            # add TYPESAFE_API_KEY
 bun run observe                 # snapshots only, no key needed
 bun run judge                   # snapshots plus judgments
 bun run shadow                  # judgments plus the plan it would execute
+bun run health                  # is the newest pass whole? --age: is it recent?
 bun test
 ```
 
 The GitHub workflow runs a pass every six hours and appends to the `shadow-log` branch. Realized APY needs at least an hour of history, and the model is told how long it has been watching, so the first day of judgments is made on thin state by design.
+
+GitHub starts scheduled runs late, three to five hours so far, so every pass ends with `health`, and it turns the run red if the pass is incomplete: a vault without a snapshot or a judgment, no plan, DefiLlama unreachable or a pinned pool gone, the history not restored (a vault's observed window did not grow), or snapshots taken alone because the key is missing. A gap of more than 18 hours since the previous pass fails it, more than 9 warns. A second workflow, `shadow-health`, reads the `shadow-log` branch once a day and fails if the newest pass is more than 18 hours old, which catches passes that never started. Both run on GitHub's scheduler, so neither notices if GitHub disables schedules for the repository, which it does to public repositories after 60 days without activity. To check a copy of the log, point `CURATOR_DATA_DIR` at it:
+
+```sh
+git show origin/shadow-log:snapshots.jsonl > /tmp/log/snapshots.jsonl   # and judgments, proposals
+CURATOR_DATA_DIR=/tmp/log bun run health
+```
 
 ## Configuration
 
