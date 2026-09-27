@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!-- Runs watch-shadow.sh daily at 09:15 local time; a Mac asleep at 09:15 runs it on wake.
+     The script is launched directly, not through /bin/zsh, so macOS lists the
+     background item as watch-shadow.sh rather than zsh. It must stay executable.
      The script path is this machine's clone; edit it for another. Install:
        cp curator/scripts/com.yodablocks.leanvault-shadow-watch.plist ~/Library/LaunchAgents/
        launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.yodablocks.leanvault-shadow-watch.plist
@@ -11,7 +13,6 @@
   <string>com.yodablocks.leanvault-shadow-watch</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/bin/zsh</string>
     <string>/Users/zkmarc/Coding_2026/compiler/leanvault/curator/scripts/watch-shadow.sh</string>
   </array>
   <key>StartCalendarInterval</key>
