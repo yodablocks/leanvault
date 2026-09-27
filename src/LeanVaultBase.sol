@@ -34,6 +34,16 @@ abstract contract LeanVaultBase is ReentrancyGuardTransient {
     string private _name;
     string private _symbol;
 
+    mapping(address => uint256) public nonces;
+
+    bytes32 private constant DOMAIN_TYPEHASH =
+        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+    bytes32 private constant PERMIT_TYPEHASH =
+        keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
+    bytes32 private immutable _HASHED_NAME;
+    uint256 private immutable _INITIAL_CHAIN_ID;
+    bytes32 private immutable _INITIAL_DOMAIN_SEPARATOR;
+
     event Transfer(address indexed from, address indexed to, uint256 amount);
     event Approval(address indexed owner, address indexed spender, uint256 amount);
     event Deposit(address indexed caller, address indexed owner, uint256 assets, uint256 shares);
@@ -53,12 +63,17 @@ abstract contract LeanVaultBase is ReentrancyGuardTransient {
     error InsufficientBalance();
     error InsufficientAllowance();
     error Unauthorized();
+    error PermitExpired();
+    error InvalidSigner();
 
     constructor(address asset_, string memory name_, string memory symbol_) {
         if (asset_ == address(0)) revert ZeroAddress();
         asset = asset_;
         _name = name_;
         _symbol = symbol_;
+        _HASHED_NAME = keccak256(bytes(name_));
+        _INITIAL_CHAIN_ID = block.chainid;
+        _INITIAL_DOMAIN_SEPARATOR = _domainSeparator();
         owner = msg.sender;
         emit OwnershipTransferred(address(0), msg.sender);
     }
@@ -135,6 +150,34 @@ abstract contract LeanVaultBase is ReentrancyGuardTransient {
                 _allowances[account][spender] = allowed - amount;
             }
         }
+    }
+
+    /// @notice EIP-2612: `account` signs an approval off-chain, anyone submits it.
+    /// @dev Each nonce is spent once, so a malleated (high-s) copy of a used
+    ///      signature is rejected by the nonce, not by an s-range check.
+    function permit(address account, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)
+        public
+    {
+        if (block.timestamp > deadline) revert PermitExpired();
+        bytes32 structHash;
+        unchecked {
+            structHash = keccak256(abi.encode(PERMIT_TYPEHASH, account, spender, value, nonces[account]++, deadline));
+        }
+        address signer = ecrecover(keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR(), structHash)), v, r, s);
+        if (signer == address(0) || signer != account) revert InvalidSigner();
+        _allowances[account][spender] = value;
+        emit Approval(account, spender, value);
+    }
+
+    /// @notice Cached at deployment, recomputed only if the chain id changes, so
+    ///         a signature made before a fork is void on the other side.
+    // forge-lint: disable-next-line(mixed-case-function)
+    function DOMAIN_SEPARATOR() public view returns (bytes32) {
+        return block.chainid == _INITIAL_CHAIN_ID ? _INITIAL_DOMAIN_SEPARATOR : _domainSeparator();
+    }
+
+    function _domainSeparator() private view returns (bytes32) {
+        return keccak256(abi.encode(DOMAIN_TYPEHASH, _HASHED_NAME, keccak256("1"), block.chainid, address(this)));
     }
 
     function _mintShares(address to, uint256 amount) private {
