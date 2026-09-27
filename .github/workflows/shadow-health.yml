@@ -1,0 +1,41 @@
+name: shadow-health
+
+# Watchdog for the shadow schedule: fails when the newest pass on the shadow-log
+# branch is older than SHADOW_MAX_GAP_HOURS (18 by default, two six-hour slots
+# missed plus GitHub's usual lateness). Only the age is checked here; whether a
+# pass is complete is checked by the pass itself, against the config it ran with.
+# It runs on the same scheduler, so it cannot see GitHub disabling schedules
+# for the whole repository.
+
+on:
+  schedule:
+    - cron: "47 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  age:
+    name: Newest shadow pass
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Read the log
+        run: |
+          mkdir -p "$RUNNER_TEMP/log"
+          git fetch --depth=1 origin shadow-log
+          for f in snapshots judgments proposals; do
+            git show origin/shadow-log:$f.jsonl > "$RUNNER_TEMP/log/$f.jsonl"
+          done
+
+      - name: Check its age
+        working-directory: curator
+        env:
+          CURATOR_DATA_DIR: ${{ runner.temp }}/log
+        run: bun run src/cli.ts health --age

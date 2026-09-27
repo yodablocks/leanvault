@@ -3,8 +3,9 @@ import { makeRpc } from "./rpc";
 import { mapLimit, observe, signals } from "./observe";
 import { buildState, judge, makeTypeSafeClient } from "./judge";
 import { plan } from "./allocate";
-import { append, history } from "./store";
+import { append, history, readAll } from "./store";
 import { aggregatorFor, fetchLlamaPools } from "./llama";
+import { checkHealth, type HealthLog } from "./health";
 
 const cmd = process.argv[2] ?? "shadow";
 
@@ -64,7 +65,27 @@ if (cmd === "observe") {
     for (const m of p.moves) console.log(`  ${m.from} -> ${m.to}: ${money(m.assets)}`);
     if (p.escalations.length) { console.log("escalate to a person:"); for (const e of p.escalations) console.log("  " + e); }
   }
+} else if (cmd === "health") {
+  // `health` checks the pass just written; `health --age` only asks whether a pass ran recently.
+  const log: HealthLog = {
+    snapshots: await readAll("snapshots.jsonl"),
+    judgments: await readAll("judgments.jsonl"),
+    proposals: await readAll("proposals.jsonl"),
+  };
+  const h = checkHealth(log, {
+    labels: config.strategies.map((s) => s.label),
+    pooled: config.strategies.filter((s) => s.llamaPool).map((s) => s.label),
+    maxGapHours: Number(process.env.SHADOW_MAX_GAP_HOURS ?? 18),
+    warnGapHours: Number(process.env.SHADOW_WARN_GAP_HOURS ?? 9),
+    now: Math.floor(Date.now() / 1000),
+    mode: process.argv.includes("--age") ? "age" : "pass",
+  });
+  for (const l of h.info) console.log(l);
+  for (const l of h.warnings) console.log("warning: " + l);
+  for (const l of h.problems) console.log("problem: " + l);
+  console.log(h.ok ? "healthy" : "unhealthy");
+  if (!h.ok) process.exit(1);
 } else {
-  console.error("usage: bun run src/cli.ts observe|judge|shadow");
+  console.error("usage: bun run src/cli.ts observe|judge|shadow|health [--age]");
   process.exit(2);
 }
