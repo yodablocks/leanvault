@@ -8,6 +8,7 @@
     "observe": "bun run src/cli.ts observe",
     "judge": "bun run src/cli.ts judge",
     "shadow": "bun run src/cli.ts shadow",
+    "health": "bun run src/cli.ts health",
     "test": "bun test"
   },
   "engines": { "bun": ">=1.1" }

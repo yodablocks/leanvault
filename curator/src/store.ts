@@ -4,7 +4,8 @@ import { appendFile, mkdir, readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import type { Snapshot } from "./observe";
 
-const DIR = new URL("../data/", import.meta.url).pathname;
+// CURATOR_DATA_DIR points `health` at a copy of the log, such as the shadow-log branch.
+const DIR = process.env.CURATOR_DATA_DIR?.replace(/\/?$/, "/") ?? new URL("../data/", import.meta.url).pathname;
 
 export async function append(file: string, record: unknown): Promise<void> {
   await mkdir(DIR, { recursive: true });
