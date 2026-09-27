@@ -124,7 +124,7 @@ The allocator role is where software sits, and `curator/` is that software: a sh
 
 The model called both "hold" with high confidence and rated their health with low confidence, spreading probability across "healthy" and "watch" and keeping 14 to 17% on "exit now", because on ten minutes of history it had no realized yield and no liquidity figure, and it was told so. It did not pretend to know. The policy escalated the low confidence and proposed no move. That first run also caught a flaw in the policy, which had proposed moving 18,519 USDC on a 0.15 difference between two low-confidence scores; the dead band exists because of it. About 775 input tokens per strategy per pass.
 
-**Twenty-three vaults, and a lesson in state.** The watchlist grew to 22 USDC vaults on Ethereum and Base, the two allocation targets plus 21 that are only ranked. Two of the 21 report numbers upstream that no lending vault could produce, and they are on the list unlabeled. The first pass with the full list ranked one of them third: the model had been shown only a flag for "price below one", and a vault claiming each share is worth 822 dollars was invisible in that state. With the share price and a code-computed plausibility check added to what it sees, both went to the bottom with an exit signal, health 2.9 out of 3. Same model, same vaults. What the model is shown decides what it can catch, and a pass over the real list is how you find out what it cannot see.
+**Twenty-two vaults, and a lesson in state.** The watchlist grew to 22 USDC vaults on Ethereum and Base, the two allocation targets plus 20 that are only ranked. Two of the 20 report numbers upstream that no lending vault could produce, and they are on the list unlabeled. The first pass with the full list ranked one of them third: the model had been shown only a flag for "price below one", and a vault claiming each share is worth 822 dollars was invisible in that state. With the share price and a code-computed plausibility check added to what it sees, both went to the bottom with an exit signal, health 2.9 out of 3. Same model, same vaults. What the model is shown decides what it can catch, and a pass over the real list is how you find out what it cannot see.
 
 **The vaults it tracks.** All USDC, all ERC4626, all verified at startup by reading their name and asset. TVL as observed on 2026-09-26. Two of the watch-only entries are the deliberately planted implausible vaults described above, left unlabeled here as well.
 
@@ -155,7 +155,7 @@ The model called both "hold" with high confidence and rated their health with lo
 
 **Then thirty days of history from DefiLlama.** The judgments on the first pass were made on minutes of on-chain data, and it showed: health scores hovered around "watch" with low confidence for every legitimate vault. DefiLlama's yields index lists 20 of the 22 with a 30-day mean yield, its volatility and an outlier flag, matched once by TVL and pinned by pool id. With that in the state, the legitimate vaults settled between healthy and watch, the two planted ones still exit, and the bottom of the real set became the two that deserve it: a vault trading at 0.83 per share and one whose yield volatility is ten times its peers'. The two vaults the index does not list are the planted ones, and the model is shown exactly that.
 
-**What it is not.** It does not predict yields, it sees only the fields it is shown, and it has no authority. The intended path from here is a schedule of hourly passes for weeks, a comparison of its log with what a human curator would have done, and only then the allocator key, inside the caps and the window limit the contract enforces regardless.
+**What it is not.** It does not predict yields, it sees only the fields it is shown, and it has no authority. The intended path from here is a pass every six hours for weeks, a comparison of its log with what a human curator would have done, and only then the allocator key, inside the caps and the window limit the contract enforces regardless.
 
 **The same judgments face users too.** Matched against a stated horizon and tolerance, the per-strategy health scores become a recommendation of which vault fits, publishable as a signed statement anyone can verify. Same engine, different consumer.
 
@@ -184,11 +184,11 @@ Done, in the order it happened:
 - The shell: `LeanVault`, the cheapest ERC4626 accounting layer we could write, measured against Solady in [erc4626-bench](https://github.com/yodablocks/erc4626-bench).
 - One strategy: `LeanYieldVault`, permissionless harvest with gains streamed and losses taken at once.
 - Many strategies: `LeanAllocatorVault`, with the curator's authority bounded on-chain by a timelocked allowlist, caps and a per-window rebalance limit.
-- The curator: `curator/`, watching two mainnet vaults, judging with Jev, logging what it would do. Runs every hour on GitHub and appends to the `shadow-log` branch.
+- The curator: `curator/`, watching 22 USDC vaults on Ethereum and Base, judging with Jev, logging what it would do. Runs every six hours on GitHub and appends to the `shadow-log` branch.
 
 Next, in order:
 
-1. **Let the log accumulate.** Weeks of hourly passes, then a comparison of the agent's proposals with what a human curator would have done. Only that record decides whether the agent gets the allocator key.
+1. **Let the log accumulate.** Weeks of passes every six hours, then a comparison of the agent's proposals with what a human curator would have done. Only that record decides whether the agent gets the allocator key.
 2. **Real strategies on a testnet.** Deploy `LeanAllocatorVault` against strategies that exist there, harvest for a week, and let the curator watch a vault it could actually move.
 3. **ERC-7540** request-based deposits and redemptions for anything with lockups.
 4. **An external audit**, before any real funds. Nothing in this repository is a substitute for one.
