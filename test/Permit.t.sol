@@ -37,7 +37,7 @@ contract PermitTest is Test {
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
                 keccak256(bytes(name_)),
                 keccak256("1"),
-                block.chainid,
+                vm.getChainId(),
                 vault_
             )
         );
@@ -83,7 +83,7 @@ contract PermitTest is Test {
     }
 
     function test_permit_reverts_after_deadline() public {
-        uint256 deadline = block.timestamp;
+        uint256 deadline = vm.getBlockTimestamp();
         (uint8 v, bytes32 r, bytes32 s) = _sign(alicePk, bob, 1e18, 0, deadline);
         vm.warp(deadline + 1);
         vm.expectRevert(LeanVaultBase.PermitExpired.selector);
@@ -109,6 +109,17 @@ contract PermitTest is Test {
         vault.permit(alice, bob, 2e18, block.timestamp, v, r, s);
     }
 
+    /// @dev (r, n - s) with the flipped v recovers the same signer. Only the
+    ///      low-s form is accepted, so a signature has exactly one valid encoding.
+    function test_permit_reverts_for_high_s() public {
+        (uint8 v, bytes32 r, bytes32 s) = _sign(alicePk, bob, 1e18, 0, block.timestamp);
+        uint256 n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
+        bytes32 highS = bytes32(n - uint256(s));
+        uint8 flippedV = v == 27 ? 28 : 27;
+        vm.expectRevert(LeanVaultBase.InvalidSigner.selector);
+        vault.permit(alice, bob, 1e18, block.timestamp, flippedV, r, highS);
+    }
+
     /// @dev ecrecover returns zero for an invalid signature. Without the zero
     ///      check, anyone could set allowances on behalf of address(0).
     function test_permit_reverts_for_zero_owner() public {
@@ -119,7 +130,7 @@ contract PermitTest is Test {
     function test_permit_signature_does_not_survive_a_fork() public {
         (uint8 v, bytes32 r, bytes32 s) = _sign(alicePk, bob, 1e18, 0, block.timestamp);
         bytes32 before = vault.DOMAIN_SEPARATOR();
-        vm.chainId(block.chainid + 1);
+        vm.chainId(vm.getChainId() + 1);
         assertTrue(vault.DOMAIN_SEPARATOR() != before);
         assertEq(vault.DOMAIN_SEPARATOR(), _domain(address(vault), "Lean Vault"));
         vm.expectRevert(LeanVaultBase.InvalidSigner.selector);

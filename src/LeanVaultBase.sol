@@ -40,6 +40,8 @@ abstract contract LeanVaultBase is ReentrancyGuardTransient {
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
     bytes32 private constant PERMIT_TYPEHASH =
         keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
+    // secp256k1n / 2, the EIP-2 bound on s.
+    uint256 private constant MAX_LOW_S = 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0;
     bytes32 private immutable _HASHED_NAME;
     uint256 private immutable _INITIAL_CHAIN_ID;
     bytes32 private immutable _INITIAL_DOMAIN_SEPARATOR;
@@ -153,12 +155,13 @@ abstract contract LeanVaultBase is ReentrancyGuardTransient {
     }
 
     /// @notice EIP-2612: `account` signs an approval off-chain, anyone submits it.
-    /// @dev Each nonce is spent once, so a malleated (high-s) copy of a used
-    ///      signature is rejected by the nonce, not by an s-range check.
+    /// @dev Only low-s signatures are accepted (EIP-2), so each approval has
+    ///      exactly one valid encoding. The nonce already stops replay.
     function permit(address account, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)
         public
     {
         if (block.timestamp > deadline) revert PermitExpired();
+        if (uint256(s) > MAX_LOW_S) revert InvalidSigner();
         bytes32 structHash;
         unchecked {
             structHash = keccak256(abi.encode(PERMIT_TYPEHASH, account, spender, value, nonces[account]++, deadline));
