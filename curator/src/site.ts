@@ -57,7 +57,6 @@ export function escapeHtml(s: string): string {
 const pct = (x: number | null) => (x === null ? "n/a" : `${Math.round(x * 100)}%`);
 const money = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1e3)}k`);
 const level = (score: number) => LEVELS[Math.min(3, Math.max(0, Math.round(score)))]!;
-const ago = (s: number) => (s < 3600 ? `${Math.round(s / 60)} min ago` : `${(s / 3600).toFixed(1)} h ago`);
 
 type Row = SiteLog["judgments"][number];
 
@@ -112,7 +111,9 @@ export function renderSite(log: SiteLog, o: SiteOptions): string {
       : `<p class="ok">Newest pass complete.</p>`;
   const th = o.thresholds ?? { minConfidence: 0.6, stressExit: 0.7 };
   const orderNote = plan?.ranking ? "" : `<p>No plan was written for this pass, so the table is ordered by risk score, lowest first.</p>`;
-  const when = `<p>Newest pass ${new Date(newest.start * 1000).toISOString().slice(0, 16).replace("T", " ")} UTC, ${ago(o.now - newest.end)}.</p>`;
+  // An absolute time, never an age: the page is built once per pass and runs no
+  // script, so "1 min ago" would stay on screen, false, until the next pass.
+  const when = `<p>Newest pass ${new Date(newest.start * 1000).toISOString().slice(0, 16).replace("T", " ")} UTC. Passes are scheduled every six hours and often start late; the page is rebuilt after each one.</p>`;
 
   const rows = order.map((label, i) => {
     const j = latest.get(label)!;
