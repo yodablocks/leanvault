@@ -1,9 +1,10 @@
 # leanvault
 
-**The cheapest ERC4626 accounting shell we could write in plain Solidity, a yield vault built on it, and a multi-strategy allocator whose curator can be wrong without being able to drain it.**
+**Three ERC4626 vaults on one lean accounting core, and an AI curator on probation: it judges 22 real USDC vaults every six hours, in public, and the contract bounds what it could ever do with the allocator key.**
 
-leanvault keeps the two totals and the pause flag in one storage slot, puts the reentrancy guard in transient storage, writes the share supply once, and replaces the first-deposit burn with a virtual share in the price formula. No assembly anywhere. Per transaction it costs at most 0.3% more than Solady's ERC4626 on a deposit or mint and less on withdraw and redeem, while carrying a pause switch and a reentrancy guard that the baseline lacks; its views cost a third as much, and on EraVM it is 1.3 to 3.7% cheaper than Solady on every write in [erc4626-bench](https://github.com/yodablocks/erc4626-bench).
+The core keeps both totals and the pause flag in one storage slot, guards reentrancy in transient storage, and has no assembly. It costs at most 0.3% more than Solady's ERC4626 on a deposit and less on withdraw and redeem, while carrying a pause and a guard that Solady lacks. On top of it sit a yield vault that streams gains, and an allocator whose curator is held on-chain by a timelocked allowlist, caps and a 24-hour rebalance limit. The curator is a shadow agent built on TypeSafe's Jev. It logs what it would do and moves nothing, and its latest judgments are **live at [yodablocks.github.io/leanvault](https://yodablocks.github.io/leanvault/)**.
 
+[![CI](https://github.com/yodablocks/leanvault/actions/workflows/test.yml/badge.svg)](https://github.com/yodablocks/leanvault/actions/workflows/test.yml)
 ![Solidity](https://img.shields.io/badge/Solidity-0.8.37-363636?logo=solidity&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
 ![Status](https://img.shields.io/badge/status-unaudited-orange)
@@ -13,6 +14,8 @@ leanvault keeps the two totals and the pause flag in one storage slot, puts the 
 ## Why
 
 Every yield vault needs an accounting layer before the interesting part starts, and the accounting layer is paid on every deposit. Most of them inherit one that reads two or three storage slots per call and keeps a storage-based reentrancy guard. This one was designed backwards from the gas: what is the least a correct ERC4626 shell with a pause and a guard can cost? The answer turned out to be three declarations and one arithmetic trick, and the story of how it was measured is in the [YulSafe write-up](https://github.com/yodablocks/yulsafe/blob/main/docs/the-compiler-was-fine.md).
+
+The allocator exists because the interesting question is not the accounting. It is whether software can be trusted to move depositors' money between strategies. leanvault's answer is to make that trust unnecessary on-chain, since the curator can be wrong without being able to drain anything, and then to earn it off-chain: weeks of public judgments, compared with what a human curator would have done, before the agent ever gets the key.
 
 ## What is in it
 
