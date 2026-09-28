@@ -178,3 +178,13 @@ describe("final review fixes", () => {
     expect(renderSite(log(["a"], T), { ...opts, labels: ["a"] })).toContain("curator/src/judge.ts");
   });
 });
+
+describe("static page, no clock", () => {
+  // The page is built once per pass and runs no script, so a relative age
+  // ("1 min ago") is only true at build time and false for hours afterwards.
+  test("the newest pass is given as an absolute UTC time, never as an age", () => {
+    const html = renderSite(log(["a"], T), { ...opts, labels: ["a"], now: T + 5 * 3600 });
+    expect(html).not.toMatch(/ ago\b/);
+    expect(html).toMatch(/Newest pass \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC/);
+  });
+});
