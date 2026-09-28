@@ -233,18 +233,18 @@ contract LeanYieldVaultTest is Test {
         vault.withdraw(70e18, alice, alice); // must not revert at maxWithdraw
     }
 
-    function test_pauseBlocksDepositsAndWithdrawalsNotHarvest() public {
+    function test_pauseBlocksDepositsNotWithdrawalsOrHarvest() public {
         vm.prank(alice);
         vault.deposit(100e18, alice);
         vault.pause();
         vm.prank(alice);
         vm.expectRevert(LeanVaultBase.Paused.selector);
         vault.deposit(1e18, alice);
-        vm.prank(alice);
-        vm.expectRevert(LeanVaultBase.Paused.selector);
-        vault.withdraw(1e18, alice, alice);
+        assertEq(vault.maxDeposit(alice), 0);
         _gain(1e18);
         vault.harvest(); // accounting keeps working while paused
-        assertEq(vault.maxDeposit(alice), 0);
+        assertGt(vault.maxWithdraw(alice), 0, "the exit stays open");
+        vm.prank(alice);
+        vault.withdraw(1e18, alice, alice); // an exit is never paused
     }
 }

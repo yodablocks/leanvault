@@ -297,8 +297,8 @@ abstract contract LeanVaultBase is ReentrancyGuardTransient {
         nonReentrant
         returns (uint256 shares)
     {
-        (uint256 totalAssets_, uint256 totalSupply_, bool paused_) = (_totalAssets, _totalSupply, _paused);
-        if (paused_) revert Paused();
+        // An exit is never paused: pause stops new money, not depositors leaving.
+        (uint256 totalAssets_, uint256 totalSupply_) = (_totalAssets, _totalSupply);
         if (assets == 0) revert ZeroAmount();
         if (receiver == address(0)) revert ZeroAddress();
         uint256 net = _netTotalAssets(totalAssets_);
@@ -320,8 +320,8 @@ abstract contract LeanVaultBase is ReentrancyGuardTransient {
         nonReentrant
         returns (uint256 assets)
     {
-        (uint256 totalAssets_, uint256 totalSupply_, bool paused_) = (_totalAssets, _totalSupply, _paused);
-        if (paused_) revert Paused();
+        // An exit is never paused: pause stops new money, not depositors leaving.
+        (uint256 totalAssets_, uint256 totalSupply_) = (_totalAssets, _totalSupply);
         if (shares == 0) revert ZeroAmount();
         if (receiver == address(0)) revert ZeroAddress();
         if (shares > totalSupply_) revert InsufficientShares();
@@ -380,12 +380,10 @@ abstract contract LeanVaultBase is ReentrancyGuardTransient {
     }
 
     function maxWithdraw(address account) public view virtual returns (uint256) {
-        if (_paused) return 0;
         return _toAssets(_balances[account], _netTotalAssets(_totalAssets), _totalSupply, false);
     }
 
     function maxRedeem(address account) public view virtual returns (uint256) {
-        if (_paused) return 0;
         return _balances[account];
     }
 
@@ -400,6 +398,8 @@ abstract contract LeanVaultBase is ReentrancyGuardTransient {
         emit OwnershipTransferred(previousOwner, newOwner);
     }
 
+    /// @notice Stops deposit and mint. Withdraw and redeem stay open, so the owner
+    ///         can halt a vault but cannot lock depositors in it.
     function pause() external onlyOwner {
         _paused = true;
         emit PausedEvent();

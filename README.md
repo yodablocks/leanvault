@@ -25,7 +25,7 @@ The allocator exists because the interesting question is not the accounting. It 
 | **Transient guard** | Solady's `ReentrancyGuardTransient`, two TSTOREs per call instead of a cold SLOAD and two SSTOREs. Requires cancun. |
 | **Supply written once** | The share token is minimal and reads its supply from the packed word, so a deposit updates supply in the same write as the totals. |
 | **Virtual share** | One virtual share and one virtual asset in the price formula, the way Solady defends against inflation. No storage write on the first deposit. Donations never move the price anyway, since the vault never reads its own balance. |
-| **Owner** | One slot, one transfer function, no handover machinery, no payable functions. |
+| **Owner** | One slot, one transfer function, no handover machinery, no payable functions. The owner can pause deposits and mints; withdrawals and redemptions are never paused, so the owner can halt a vault but cannot lock depositors in it. |
 | **Permit** | EIP-2612 on the share token, so a holder can approve a router or a zap with a signature instead of a transaction. The EIP-712 domain is cached at deployment and recomputed if the chain id changes, so a signature made before a fork is void after it. Plain `ecrecover` with the EIP-2 low-s bound, so each approval has one valid signature, no assembly. |
 | **Rounding** | Deposit and redeem round down what the user gets, mint and withdraw round up what the user pays. Previews equal the real calls. |
 
