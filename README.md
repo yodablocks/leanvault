@@ -40,17 +40,17 @@ From [erc4626-bench](https://github.com/yodablocks/erc4626-bench), column Lean3,
 | `deposit()` first, cold vault | 106,096 | 106,009 |
 | `deposit()` subsequent | 54,796 | 54,709 |
 | `mint()` | 54,877 | 54,735 |
-| `withdraw()` | 53,303 | 54,576 |
-| `redeem()` | 53,160 | 53,284 |
+| `withdraw()` | 53,265 | 54,576 |
+| `redeem()` | 53,122 | 53,284 |
 | `totalAssets()` | 2,321 | 5,621 |
 | `convertToShares()` | 3,002 | 8,072 |
 | `convertToAssets()` | 3,104 | 8,108 |
 | `permit()` | 73,903 | 76,296 |
-| Deployment gas | 2,028,691 | 1,185,598 |
+| Deployment gas | 1,959,733 | 1,185,598 |
 
-On EraVM, from receipts on `anvil-zksync`, the same vault costs 171,152 on a first deposit against Solady's 173,466, and 161,122 on a withdraw against 167,356. The benchmark's other columns show what each design choice costs; its Lean2 is this vault before the hooks and `permit`.
+On EraVM, from receipts on `anvil-zksync`, the same vault costs 171,088 on a first deposit against Solady's 173,466, and 161,052 on a withdraw against 167,356. The benchmark's other columns show what each design choice costs; its Lean2 is this vault before the hooks and `permit`.
 
-Both columns now carry `permit`, so the gap in deployment is not a missing feature. Solady writes its ERC20 and ERC4626 in inline assembly; this vault is plain Solidity and also carries a pause switch, an owner and a reentrancy guard. That is the trade: about 70% more to deploy, once, for code a reviewer can read line by line. On what a user repeats, deposits and mint cost 87 to 142 gas more than Solady, withdraw and redeem cost 124 to 1,273 less, and views a third as much. A signed `permit` runs 2,393 gas cheaper than Solady's, most of its cost two cold storage writes (the nonce and the allowance).
+Both columns now carry `permit`, so the gap in deployment is not a missing feature. Solady writes its ERC20 and ERC4626 in inline assembly; this vault is plain Solidity and also carries a pause switch, an owner and a reentrancy guard. That is the trade: about 65% more to deploy, once, for code a reviewer can read line by line. On what a user repeats, deposits and mint cost 87 to 142 gas more than Solady, withdraw and redeem cost 162 to 1,311 less, and views a third as much. A signed `permit` runs 2,393 gas cheaper than Solady's, most of its cost two cold storage writes (the nonce and the allowance).
 
 ## The yield vault
 
