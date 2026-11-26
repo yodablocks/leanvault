@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { plan, weightOf } from "../src/allocate";
+import { plan, stableCall, weightOf } from "../src/allocate";
 import type { Judgment } from "../src/judge";
 import type { CuratorConfig } from "../src/config";
 
@@ -8,7 +8,7 @@ const cfg: CuratorConfig = {
   strategies: [{ label: "a", chain: "ethereum", address: "0x1", cap: 800, allocate: true }, { label: "b", chain: "ethereum", address: "0x2", cap: 800, allocate: true }],
   currentAllocation: { a: 500, b: 500 },
   rebalanceLimit: 150,
-  thresholds: { stressExit: 0.7, minConfidence: 0.6, minMoveFraction: 0.05 },
+  thresholds: { stressExit: 0.7, minConfidence: 0.6, minMoveFraction: 0.05, callWindow: 3, callMargin: 0.05 },
 };
 
 function j(label: string, o: Partial<{ stress: number; risk: number; action: "hold" | "reduce" | "exit"; conf: number }> = {}): Judgment {
@@ -83,3 +83,44 @@ describe("plan", () => {
     expect(p.moves).toEqual([]);
   });
 });
+
+// An action judgment with the given probabilities; the choice is the most likely.
+function act(hold: number, reduce: number, exit = 0): Judgment["action"] {
+  const probabilities = { hold, reduce, exit };
+  const choice = (Object.entries(probabilities).sort((a, b) => b[1] - a[1])[0]![0]) as "hold" | "reduce" | "exit";
+  return { choice, probabilities, confidence: 0.5 };
+}
+
+describe("stableCall", () => {
+  test("no history means hold", () => expect(stableCall([], 3, 0.05)).toBe("hold"));
+  test("one noisy flip between close choices does not change the call", () => {
+    expect(stableCall([act(0.6, 0.4), act(0.6, 0.4), act(0.45, 0.55)], 3, 0.05)).toBe("hold");
+  });
+  test("a shift that persists is followed", () => {
+    expect(stableCall([act(0.6, 0.4), act(0.4, 0.6), act(0.4, 0.6)], 3, 0.05)).toBe("reduce");
+  });
+  test("a lead below the margin keeps the current call", () => {
+    // call reduce; averaged over three passes hold leads 0.517 to 0.483, under the margin
+    expect(stableCall([act(0.4, 0.6), act(0.55, 0.45), act(0.6, 0.4)], 3, 0.05)).toBe("reduce");
+    // call hold; averaged over three passes reduce leads 0.51 to 0.49, under the margin
+    expect(stableCall([act(0.6, 0.4), act(0.45, 0.55), act(0.42, 0.58)], 3, 0.05)).toBe("hold");
+  });
+  test("an exit on the current pass stands at once, whatever came before", () => {
+    expect(stableCall([act(0.9, 0.1), act(0.9, 0.1), act(0.1, 0.1, 0.8)], 3, 0.05)).toBe("exit");
+  });
+  test("the first pass sets the call", () => expect(stableCall([act(0.3, 0.7)], 3, 0.05)).toBe("reduce"));
+});
+
+describe("plan with stabilized calls", () => {
+  test("the policy weighs the call, not the noisy choice, and the ranking shows both", () => {
+    const noisy = j("a", { action: "reduce" });
+    const p = plan(cfg, [noisy, j("b")], { a: 0.05, b: 0.05 }, { a: "hold" });
+    const a = p.ranking.find((r) => r.label === "a")!;
+    expect(a.action).toBe("hold");
+    expect(a.modelAction).toBe("reduce");
+    expect(a.weight).toBe(weightOf(noisy, 0.05, cfg.thresholds, "hold"));
+    expect(p.moves).toEqual([]);
+    expect(p.ranking.find((r) => r.label === "b")!.modelAction).toBeUndefined();
+  });
+});
+

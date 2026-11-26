@@ -187,4 +187,14 @@ describe("static page, no clock", () => {
     expect(html).not.toMatch(/ ago\b/);
     expect(html).toMatch(/Newest pass \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC/);
   });
+
+  test("the action column shows the plan's stabilized call, with the model's choice when it differs", () => {
+    const l = log(["a", "b"], T);
+    l.judgments[0]!.judgment.action.choice = "reduce";
+    l.proposals[0]!.plan.ranking = [{ label: "a", action: "hold", modelAction: "reduce" }, { label: "b", action: "hold" }];
+    const html = renderSite(l, opts);
+    expect(html).toContain("hold <span class=\"tag\">model: reduce</span>");
+    expect(html.match(/model: /g)?.length).toBe(1);
+  });
 });
+

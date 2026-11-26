@@ -1,8 +1,8 @@
 import { config } from "./config";
 import { makeRpc } from "./rpc";
 import { mapLimit, observe, signals } from "./observe";
-import { buildState, judge, makeTypeSafeClient } from "./judge";
-import { plan } from "./allocate";
+import { buildState, judge, makeTypeSafeClient, type Judgment } from "./judge";
+import { plan, stableCall } from "./allocate";
 import { append, history, readAll } from "./store";
 import { aggregatorFor, fetchLlamaPools } from "./llama";
 import { checkHealth, type HealthLog } from "./health";
@@ -57,10 +57,17 @@ if (cmd === "observe") {
     console.log(`${j.label.padEnd(22)} stress ${j.stress.toFixed(2)}  risk ${j.risk.score.toFixed(2)}/3 (conf ${j.risk.confidence.toFixed(2)})  action ${j.action.choice} (conf ${j.action.confidence.toFixed(2)})  ${j.model}`);
   }
   if (cmd === "shadow") {
-    const p = plan(config, judgments, apys);
+    // Each vault's call from its logged action judgments, oldest first; this
+    // pass's judgments were appended above, so they come last.
+    const logged = (await readAll<{ at: number; judgment: Judgment }>("judgments.jsonl")).sort((a, b) => a.at - b.at);
+    const calls: Record<string, string> = {};
+    for (const j of judgments) {
+      calls[j.label] = stableCall(logged.filter((r) => r.judgment.label === j.label).map((r) => r.judgment.action), config.thresholds.callWindow, config.thresholds.callMargin);
+    }
+    const p = plan(config, judgments, apys, calls);
     await append("proposals.jsonl", { at: Date.now(), plan: p });
     console.log("\nranking, best first:");
-    for (const r of p.ranking) console.log(`  ${r.label.padEnd(24)} w ${r.weight.toFixed(3)}  stress ${r.stress.toFixed(2)}  risk ${r.risk.toFixed(2)}  ${r.action}`);
+    for (const r of p.ranking) console.log(`  ${r.label.padEnd(24)} w ${r.weight.toFixed(3)}  stress ${r.stress.toFixed(2)}  risk ${r.risk.toFixed(2)}  ${r.action}${r.modelAction ? ` (model: ${r.modelAction})` : ""}`);
     console.log("\nproposed allocation:");
     for (const q of p.proposals) console.log(`  ${q.label.padEnd(22)} ${money(q.current).padStart(10)} -> ${money(q.target).padStart(10)}  (w ${q.weight.toFixed(3)})`);
     console.log(p.moves.length ? (p.needsApproval ? "moves this window (held for approval):" : "moves this window:") : "moves this window: none");
