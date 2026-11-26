@@ -21,7 +21,7 @@ export interface Pass {
 export interface HealthOptions {
   /** Every label in the config; each must be snapshotted and judged in the newest pass. */
   labels: string[];
-  /** Labels pinned to a DefiLlama pool; each must come back listed. */
+  /** Labels pinned to a DefiLlama pool. One that drops out of the index is judged without DefiLlama data and named in a warning. */
   pooled: string[];
   /** A gap above this fails the check. Two slots missed on a six-hour schedule. */
   maxGapHours: number;
@@ -124,9 +124,11 @@ export function checkHealth(log: HealthLog, o: HealthOptions): Health {
     if (judged.every((j) => j.state.aggregator === undefined)) {
       problems.push("no DefiLlama data in the newest pass: the index was unreachable");
     } else {
-      const delisted = judged.filter((j) => o.pooled.includes(j.state.label) && j.state.aggregator && !j.state.aggregator.listed);
+      // The index answered, so a pinned vault without DefiLlama data means its pool
+      // dropped out. Passes before 2026-11-26 recorded that as listed: false.
+      const delisted = judged.filter((j) => o.pooled.includes(j.state.label) && (j.state.aggregator === undefined || !j.state.aggregator.listed));
       const names = [...new Set(delisted.map((j) => j.state.label))];
-      if (names.length) problems.push(`pinned DefiLlama pool not found for ${names.join(", ")}`);
+      if (names.length) warnings.push(`pinned DefiLlama pool not found for ${names.join(", ")}, judged without DefiLlama data: re-pin or remove the pin in config.ts`);
     }
   }
 

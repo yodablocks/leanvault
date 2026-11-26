@@ -9,13 +9,15 @@ const pooled = ["eth-a", "base-c"];
 // One pass shaped like the real log: snapshot and judgment times are block
 // timestamps in seconds, base about ten seconds after ethereum; the proposal
 // time is Date.now() in milliseconds, a few seconds after the last judgment.
-function pass(start: number, observedDays: number, o: { drop?: string[]; noJudge?: boolean; noPlan?: boolean; noLlama?: boolean; delisted?: string[]; noLiquidity?: boolean } = {}): HealthLog {
+function pass(start: number, observedDays: number, o: { drop?: string[]; noJudge?: boolean; noPlan?: boolean; noLlama?: boolean; delisted?: string[]; legacyDelisted?: string[]; noLiquidity?: boolean } = {}): HealthLog {
   const log: HealthLog = { snapshots: [], judgments: [], proposals: [] };
   for (const label of labels) {
     const ts = label.startsWith("base") ? start + 10 : start;
     log.snapshots.push({ label, timestamp: ts });
     if (o.noJudge || o.drop?.includes(label)) continue;
-    const aggregator = o.noLlama ? undefined : { listed: pooled.includes(label) && !o.delisted?.includes(label) };
+    // delisted: the pool dropped out and the pass sent no DefiLlama data (current behaviour);
+    // legacyDelisted: passes before 2026-11-26 recorded the same event as listed: false.
+    const aggregator = o.noLlama || o.delisted?.includes(label) ? undefined : { listed: pooled.includes(label) && !o.legacyDelisted?.includes(label) };
     const liquidity_ratio_now = o.noLiquidity ? null : 0.7;
     log.judgments.push({ at: ts, state: { label, observed_days: observedDays, liquidity_ratio_now, ...(aggregator ? { aggregator } : {}) } });
   }
@@ -78,9 +80,16 @@ describe("checkHealth after a pass", () => {
     expect(h.problems.join("\n")).toMatch(/DefiLlama/);
   });
 
-  test("a pinned pool that DefiLlama no longer lists is named", () => {
+  test("a pinned pool that DefiLlama no longer lists is named in a warning, not a failure", () => {
     const h = checkHealth(join(pass(T0, 0.1), pass(T0 + 6 * H, 0.35, { delisted: ["base-c"] })), { ...opts, now: T0 + 6 * H, mode: "pass" });
-    expect(h.problems.some((p) => p.includes("base-c") && p.includes("pool"))).toBe(true);
+    expect(h.ok).toBe(true);
+    expect(h.warnings.some((w) => w.includes("base-c") && w.includes("pool"))).toBe(true);
+  });
+
+  test("an older pass that recorded the delisting as listed: false is also a warning", () => {
+    const h = checkHealth(join(pass(T0, 0.1), pass(T0 + 6 * H, 0.35, { legacyDelisted: ["base-c"] })), { ...opts, now: T0 + 6 * H, mode: "pass" });
+    expect(h.ok).toBe(true);
+    expect(h.warnings.some((w) => w.includes("base-c"))).toBe(true);
   });
 
   test("liquidity unmeasured for every vault means the probe is broken, not the vaults", () => {

@@ -32,8 +32,12 @@ export async function fetchLlamaPools(fetchImpl: typeof fetch = fetch): Promise<
 
 export function aggregatorFor(pools: Map<string, LlamaPool> | null, poolId: string | undefined): Aggregator | null {
   if (!pools) return null; // fetch failed: say nothing rather than "not listed"
-  const p = poolId ? pools.get(poolId) : undefined;
-  if (!p) return { listed: false, apyNowPct: null, apyMean30dPct: null, apyVolatility30d: null, apyChange30dPct: null, flaggedOutlier: null, tvlUsd: null };
+  // No pin: the index never listed this vault, which is a fact worth showing.
+  if (poolId === undefined) return { listed: false, apyNowPct: null, apyMean30dPct: null, apyVolatility30d: null, apyChange30dPct: null, flaggedOutlier: null, tvlUsd: null };
+  // A pinned pool that has dropped out of the index is unknown, not "never listed":
+  // say nothing, and let the vault be judged from its on-chain numbers. Health warns.
+  const p = pools.get(poolId);
+  if (!p) return null;
   return {
     listed: true,
     apyNowPct: p.apy,

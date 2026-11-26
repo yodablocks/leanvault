@@ -41,7 +41,7 @@ export interface StrategyState {
   is_price_per_share_below_one: boolean;
   /** Code-computed: true when the price is outside what accumulated lending yield could explain. */
   is_price_per_share_implausible: boolean;
-  /** From DefiLlama, a third-party index. Absent when the index could not be fetched. */
+  /** From DefiLlama, a third-party index. Absent when the index could not be fetched, or when a pinned pool has dropped out of it. */
   aggregator?: {
     listed: boolean;
     apy_now_pct: number | null;
