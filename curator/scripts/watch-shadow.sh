@@ -27,6 +27,14 @@ fail() {
   exit 1
 }
 
+# launchd runs this on wake when the Mac slept through 09:15, often before
+# Wi-Fi is back. Wait up to five minutes for GitHub before calling it a failure.
+for attempt in {1..10}; do
+  /usr/bin/curl -fsS -m 10 -o /dev/null https://api.github.com && break
+  (( attempt == 10 )) && fail "GitHub unreachable for five minutes: no network?"
+  sleep 30
+done
+
 for wf in shadow.yml shadow-health.yml; do
   state=$("$GH" api "repos/$REPO/actions/workflows/$wf" -q .state 2>&1) || fail "cannot read $wf state from GitHub: $state"
   [[ $state == active ]] || fail "$wf is $state, not active: re-enable it in the Actions tab"
