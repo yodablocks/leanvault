@@ -113,7 +113,7 @@ export function renderSite(log: SiteLog, o: SiteOptions): string {
   const orderNote = plan?.ranking ? "" : `<p>No plan was written for this pass, so the table is ordered by risk score, lowest first.</p>`;
   // An absolute time, never an age: the page is built once per pass and runs no
   // script, so "1 min ago" would stay on screen, false, until the next pass.
-  const when = `<p>Newest pass ${new Date(newest.start * 1000).toISOString().slice(0, 16).replace("T", " ")} UTC. Passes are scheduled every six hours and often start late; the page is rebuilt after each one.</p>`;
+  const when = `<p>Newest pass ${new Date(newest.start * 1000).toISOString().slice(0, 16).replace("T", " ")} UTC. Passes are scheduled every six hours; GitHub's free scheduler starts about two a day, often hours late. The page is rebuilt after each one.</p>`;
 
   const callOf = new Map(plan?.ranking?.map((r) => [r.label, r] as const) ?? []);
   const rows = order.map((label, i) => {
