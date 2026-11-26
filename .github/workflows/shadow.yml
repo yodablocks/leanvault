@@ -1,8 +1,9 @@
 name: shadow
 
-# Shadow pass of the curator against the real strategies, every six hours.
-# GitHub delays or skips scheduled runs under load; four a day is enough for
-# stress detection in lending vaults and keeps the token cost modest. Appends the
+# Shadow pass of the curator against the real strategies, scheduled every six
+# hours. GitHub's free scheduler delays or drops runs under load and in practice
+# starts about two a day (69 of 120 slots in the 30 days to 2026-11-26), which
+# is enough for lending vaults and keeps the token cost modest. Appends the
 # snapshots, judgments and plans to the `shadow-log` branch, which is the
 # record that decides whether the agent ever gets the allocator key.
 # Needs the TYPESAFE_API_KEY repository secret; without it the run skips.

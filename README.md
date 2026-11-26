@@ -1,6 +1,6 @@
 # leanvault
 
-**Three ERC4626 vaults on one lean accounting core, and an AI curator on probation: it judges 22 real USDC vaults every six hours, in public, and the contract bounds what it could ever do with the allocator key.**
+**Three ERC4626 vaults on one lean accounting core, and an AI curator on probation: it judges 22 real USDC vaults about twice a day, in public, and the contract bounds what it could ever do with the allocator key.**
 
 The core keeps both totals and the pause flag in one storage slot, guards reentrancy in transient storage, and has no assembly. It costs at most 0.3% more than Solady's ERC4626 on a deposit and less on withdraw and redeem, while carrying a pause and a guard that Solady lacks. On top of it sit a yield vault that streams gains, and an allocator whose curator is held on-chain by a timelocked allowlist, caps and a 24-hour rebalance limit. The curator is a shadow agent built on TypeSafe's Jev. It logs what it would do and moves nothing, and its latest judgments are **live at [yodablocks.github.io/leanvault](https://yodablocks.github.io/leanvault/)**.
 
@@ -164,7 +164,7 @@ The model called both "hold" with high confidence and rated their health with lo
 
 **Then liquidity, measured instead of guessed.** ERC4626 has no view for how much could leave right now, so the curator simulates it: for one `eth_call`, a probe owns every share, and the vault is asked how much it would pay out. Until 2026-09-27 the field was null for 21 of the 22 vaults and wrong for the last. Measured, it runs from 22% for Fluid and Hyperithm Apex to fully or all but fully liquid for seven vaults, and the two planted vaults pay out nothing at all. On the same states with and without it, the model moved risk up for the thin vaults and down for the liquid ones, and changed no action.
 
-**What it is not.** It does not predict yields, it sees only the fields it is shown, and it has no authority. The intended path from here is a pass every six hours for weeks, a comparison of its log with what a human curator would have done, and only then the allocator key, inside the caps and the window limit the contract enforces regardless.
+**What it is not.** It does not predict yields, it sees only the fields it is shown, and it has no authority. The intended path from here is passes about twice a day for weeks, a comparison of its log with what a human curator would have done, and only then the allocator key, inside the caps and the window limit the contract enforces regardless.
 
 **The same judgments face users too.** Matched against a stated horizon and tolerance, the per-strategy health scores become a recommendation of which vault fits, publishable as a signed statement anyone can verify. Same engine, different consumer.
 
@@ -193,12 +193,12 @@ Done, in the order it happened:
 - The shell: `LeanVault`, the cheapest ERC4626 accounting layer we could write, measured against Solady in [erc4626-bench](https://github.com/yodablocks/erc4626-bench).
 - One strategy: `LeanYieldVault`, permissionless harvest with gains streamed and losses taken at once.
 - Many strategies: `LeanAllocatorVault`, with the curator's authority bounded on-chain by a timelocked allowlist, caps and a per-window rebalance limit.
-- The curator: `curator/`, watching 22 USDC vaults on Ethereum and Base, judging with Jev, logging what it would do. Runs every six hours on GitHub and appends to the `shadow-log` branch.
+- The curator: `curator/`, watching 22 USDC vaults on Ethereum and Base, judging with Jev, logging what it would do. Scheduled every six hours on GitHub and appends to the `shadow-log` branch. GitHub's free scheduler delays or drops scheduled runs under load: over the 30 days to 2026-11-26 it started 69 of 120 slots, the 06:23 and 18:23 UTC slots almost always and the 00:23 and 12:23 slots rarely, often hours late. So the record has about two passes a day at irregular times. That is the platform, not a fault in the curator, and for lending vaults that move over days it is enough.
 - `permit` on the share token, and the gas table re-measured against the vault as shipped.
 - A [live page](https://yodablocks.github.io/leanvault/) for the shadow log, rebuilt after every pass.
 - A record worth trusting: every pass checked for completeness, liquidity measured by simulation instead of guessed, a share price below 1 named as impairment in the rubric, and two watchdogs on the schedule, one of them outside GitHub.
 
-**Now.** The shadow curator runs every six hours on 22 real USDC vaults, and its latest judgments are live at [yodablocks.github.io/leanvault](https://yodablocks.github.io/leanvault/). Liquidity has been measured and the rubric set since 2026-09-27, so the record counts from that date. One event in it so far: on 2026-11-23 DefiLlama dropped the pinned pool of Gauntlet USDC Core, already rated impaired at a share price of 0.83, while the vault's on-chain numbers did not move. The curator read that as a vault the index never listed, and its call moved from hold to reduce. From 2026-11-26, a pinned pool that drops out of the index is treated as unknown, and the vault is judged from its on-chain numbers.
+**Now.** The shadow curator runs about twice a day on 22 real USDC vaults, and its latest judgments are live at [yodablocks.github.io/leanvault](https://yodablocks.github.io/leanvault/). Liquidity has been measured and the rubric set since 2026-09-27, so the record counts from that date. One event in it so far: on 2026-11-23 DefiLlama dropped the pinned pool of Gauntlet USDC Core, already rated impaired at a share price of 0.83, while the vault's on-chain numbers did not move. The curator read that as a vault the index never listed, and its call moved from hold to reduce. From 2026-11-26, a pinned pool that drops out of the index is treated as unknown, and the vault is judged from its on-chain numbers.
 
 **Next.**
 

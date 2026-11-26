@@ -45,7 +45,7 @@ const PASS_GAP_S = 15 * 60;
 /** The plan is written after every vault is judged, one Jev call at a time. */
 const PLAN_WINDOW_S = 15 * 60;
 const WINDOW_DAYS = 7;
-const EXPECTED_PER_DAY = 4;
+const SCHEDULED_PER_DAY = 4;
 
 const hours = (s: number) => (s / 3600).toFixed(1) + "h";
 
@@ -91,8 +91,8 @@ export function checkHealth(log: HealthLog, o: HealthOptions): Health {
   const recent = all.filter((p) => p.start >= o.now - WINDOW_DAYS * 86_400);
   let longest = 0;
   for (let i = 1; i < recent.length; i++) longest = Math.max(longest, recent[i]!.start - recent[i - 1]!.end);
-  const days = Math.max((o.now - (recent[0]?.start ?? o.now)) / 86_400, 1 / EXPECTED_PER_DAY);
-  info.push(`${all.length} passes in the log, ${recent.length} in the last ${WINDOW_DAYS} days, ${(recent.length / days).toFixed(1)} a day against ${EXPECTED_PER_DAY} expected, longest gap ${hours(longest)}`);
+  const days = Math.max((o.now - (recent[0]?.start ?? o.now)) / 86_400, 1 / SCHEDULED_PER_DAY);
+  info.push(`${all.length} passes in the log, ${recent.length} in the last ${WINDOW_DAYS} days, ${(recent.length / days).toFixed(1)} a day against ${SCHEDULED_PER_DAY} scheduled, longest gap ${hours(longest)}`);
   info.push(`newest pass ${new Date(newest.start * 1000).toISOString()}, ${newest.labels.size} vaults`);
 
   if (o.mode === "age") return { ok: problems.length === 0, problems, warnings, info };
