@@ -196,7 +196,7 @@ Done, in the order it happened:
 - A [live page](https://yodablocks.github.io/leanvault/) for the shadow log, rebuilt after every pass.
 - A record worth trusting: every pass checked for completeness, liquidity measured by simulation instead of guessed, a share price below 1 named as impairment in the rubric, and two watchdogs on the schedule, one of them outside GitHub.
 
-**Now.** The shadow curator runs every six hours on 22 real USDC vaults, and its latest judgments are live at [yodablocks.github.io/leanvault](https://yodablocks.github.io/leanvault/). Liquidity has been measured and the rubric set since 2026-09-27, so the record counts from that date.
+**Now.** The shadow curator runs every six hours on 22 real USDC vaults, and its latest judgments are live at [yodablocks.github.io/leanvault](https://yodablocks.github.io/leanvault/). Liquidity has been measured and the rubric set since 2026-09-27, so the record counts from that date. One event in it so far: on 2026-11-23 DefiLlama dropped the pinned pool of Gauntlet USDC Core, already rated impaired at a share price of 0.83, while the vault's on-chain numbers did not move. The curator read that as a vault the index never listed, and its call moved from hold to reduce. From 2026-11-26, a pinned pool that drops out of the index is treated as unknown, and the vault is judged from its on-chain numbers.
 
 **Next.**
 

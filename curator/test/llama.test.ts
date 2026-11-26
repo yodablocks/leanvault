@@ -17,9 +17,11 @@ describe("aggregatorFor", () => {
     expect(a.apyMean30dPct).toBe(4.10);
     expect(a.flaggedOutlier).toBe(false);
   });
-  test("unknown id or no id means not listed, which is a fact worth showing", () => {
-    expect(aggregatorFor(pools, "nope")!.listed).toBe(false);
+  test("no pin means not listed, which is a fact worth showing", () => {
     expect(aggregatorFor(pools, undefined)!.listed).toBe(false);
+  });
+  test("a pinned pool that dropped out of the index says nothing rather than claiming never listed", () => {
+    expect(aggregatorFor(pools, "nope")).toBeNull();
   });
   test("a failed fetch says nothing rather than claiming not listed", () => {
     expect(aggregatorFor(null, "p1")).toBeNull();
