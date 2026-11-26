@@ -178,6 +178,20 @@ bun run shadow                  # judgments plus the plan it would execute
 bun test
 ```
 
+## Results so far
+
+172 passes over the 22 vaults from 2026-09-27 to 2026-11-26, 3,784 judgments. The curator holds no key: these are its opinions, logged in public on the `shadow-log` branch and the [live page](https://yodablocks.github.io/leanvault/).
+
+| What | Result |
+|---|---|
+| The two planted vaults, share prices far above 1 (about 1,061 and 3,103 now), accounting no ERC4626 depositor expects | Exit on every pass, 344 of 344, mean probability 0.97 |
+| A real impairment: Gauntlet USDC Core, share price 0.83 throughout | Rated Impaired on 170 of 172 passes, mean risk 1.99 of 3 |
+| The other 19 real vaults | Mean risk 0.83, from 0.16 to 1.50. One exit call in 3,268 judgments, escalated to a person as every exit is |
+| Call stability | 173 call changes in the raw judgments, 25 with calls averaged over three passes (see Stable calls above) |
+| Data incidents | DefiLlama dropped one pinned pool on 2026-11-23; since 2026-11-26 a dropped pool is treated as unknown |
+
+What this does not show yet: whether the calls are good ones. That needs the comparison with a human curator in the roadmap, and it is the step that decides whether the agent ever gets the allocator key.
+
 ## Quick start
 
 ```sh
