@@ -34,6 +34,10 @@ export interface CuratorConfig {
     minConfidence: number;
     /** Ignore target deltas smaller than this fraction of total allocation. */
     minMoveFraction: number;
+    /** Passes averaged into a vault's call; see stableCall in allocate.ts. */
+    callWindow: number;
+    /** Lead the averaged probability needs before the call switches away from the current one. */
+    callMargin: number;
   };
 }
 
@@ -75,5 +79,5 @@ export const config: CuratorConfig = {
   ],
   currentAllocation: { "steakhouse-usdc": 500_000, "gauntlet-usdc-prime": 500_000 },
   rebalanceLimit: 200_000,
-  thresholds: { stressExit: 0.7, minConfidence: 0.6, minMoveFraction: 0.05 },
+  thresholds: { stressExit: 0.7, minConfidence: 0.6, minMoveFraction: 0.05, callWindow: 3, callMargin: 0.05 },
 };

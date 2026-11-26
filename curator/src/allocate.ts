@@ -19,7 +19,10 @@ export interface Ranked {
   weight: number;
   stress: number;
   risk: number;
+  /** The call the policy acts on: stabilized over recent passes, see stableCall. */
   action: string;
+  /** The model's own choice on this pass, when it differs from `action`. */
+  modelAction?: string;
 }
 
 export interface Plan {
@@ -35,24 +38,53 @@ export interface Plan {
 
 const TOP = RISK_LEVELS.length - 1;
 
-/** Raw attractiveness in [0, 1]: yield-weighted, risk-weighted. Zero on an exit signal. `apy` is the realized yield when known, else the aggregator's 30-day mean. */
-export function weightOf(j: Judgment, apy: number | null, thresholds: CuratorConfig["thresholds"]): number {
-  if (j.action.choice === "exit" || j.stress >= thresholds.stressExit) return 0;
+type Call = "hold" | "reduce" | "exit";
+
+/**
+ * The call for a vault from its action judgments, oldest first, current last.
+ * A single pass is noisy: on near-identical inputs the model's choice flips
+ * between hold and reduce when the two are close. So average the probabilities
+ * over the last `window` passes, and switch away from the current call only when
+ * the new one leads by at least `margin`. An exit on the current pass always
+ * stands: a delayed exit is the wrong trade for less noise. Replayed over the
+ * record from 2026-09-27, window 3 and margin 0.05 cut call changes from 173 to
+ * 25, kept both planted vaults on exit from their first pass, and followed the
+ * Gauntlet USDC Core shift after its DefiLlama delisting within one pass.
+ */
+export function stableCall(actions: Judgment["action"][], window: number, margin: number): Call {
+  let call: Call | null = null;
+  for (let i = 0; i < actions.length; i++) {
+    const now = actions[i]!;
+    if (now.choice === "exit") { call = "exit"; continue; }
+    const recent = actions.slice(Math.max(0, i - window + 1), i + 1);
+    const avg = (c: Call) => recent.reduce((s, a) => s + (a.probabilities[c] ?? 0), 0) / recent.length;
+    const best = (["hold", "reduce", "exit"] as const).reduce((b, c) => (avg(c) > avg(b) ? c : b));
+    if (call === null || best === call || avg(best) - avg(call) >= margin) call = best;
+  }
+  return call ?? "hold";
+}
+
+/** Raw attractiveness in [0, 1]: yield-weighted, risk-weighted. Zero on an exit signal. `apy` is the realized yield when known, else the aggregator's 30-day mean. `call` defaults to the model's choice on this pass. */
+export function weightOf(j: Judgment, apy: number | null, thresholds: CuratorConfig["thresholds"], call: string = j.action.choice): number {
+  if (call === "exit" || j.stress >= thresholds.stressExit) return 0;
   const risk = j.risk.score / TOP; // 0 healthy, 1 exit
   const yieldFactor = apy === null ? 0.5 : Math.max(0, Math.min(1, 0.5 + apy * 10)); // 0% -> 0.5, 5% -> 1
   const base = yieldFactor * (1 - risk) * (1 - j.stress);
-  return j.action.choice === "reduce" ? base * 0.5 : base;
+  return call === "reduce" ? base * 0.5 : base;
 }
 
+/** `calls` holds each vault's stabilized call (stableCall); without one, the model's choice on this pass is used. */
 export function plan(
   cfg: CuratorConfig,
   judgments: Judgment[],
   apys: Record<string, number | null>,
+  calls: Record<string, string> = {},
 ): Plan {
   const escalations: string[] = [];
   const weights: Record<string, number> = {};
+  const callOf = (j: Judgment) => calls[j.label] ?? j.action.choice;
   for (const j of judgments) {
-    const w = weightOf(j, apys[j.label] ?? null, cfg.thresholds);
+    const w = weightOf(j, apys[j.label] ?? null, cfg.thresholds, callOf(j));
     weights[j.label] = w;
     if (j.action.choice === "exit") escalations.push(`${j.label}: model chose exit (p=${j.action.probabilities.exit?.toFixed(2)})`);
     if (j.stress >= cfg.thresholds.stressExit) escalations.push(`${j.label}: stress ${j.stress.toFixed(2)} above ${cfg.thresholds.stressExit}`);
@@ -99,7 +131,7 @@ export function plan(
     }
   }
   const ranking: Ranked[] = judgments
-    .map((j) => ({ label: j.label, weight: weights[j.label] ?? 0, stress: j.stress, risk: j.risk.score, action: j.action.choice }))
+    .map((j) => ({ label: j.label, weight: weights[j.label] ?? 0, stress: j.stress, risk: j.risk.score, action: callOf(j), ...(callOf(j) !== j.action.choice ? { modelAction: j.action.choice } : {}) }))
     .sort((a, b) => b.weight - a.weight || a.stress - b.stress);
   return { ranking, proposals, moves, escalations, needsApproval: escalations.length > 0 };
 }

@@ -11,7 +11,7 @@ export interface SiteLog {
     state: { label: string; vault_name: string; chain?: string; tvl_assets: number; price_per_share: number; liquidity_ratio_now: number | null };
     judgment: { risk: { score: number }; stress: number; action: { choice: string } };
   }[];
-  proposals: { at: number; plan: { ranking?: { label: string }[]; escalations: string[] } }[];
+  proposals: { at: number; plan: { ranking?: { label: string; action?: string; modelAction?: string }[]; escalations: string[] } }[];
 }
 
 export interface SiteOptions {
@@ -115,14 +115,20 @@ export function renderSite(log: SiteLog, o: SiteOptions): string {
   // script, so "1 min ago" would stay on screen, false, until the next pass.
   const when = `<p>Newest pass ${new Date(newest.start * 1000).toISOString().slice(0, 16).replace("T", " ")} UTC. Passes are scheduled every six hours and often start late; the page is rebuilt after each one.</p>`;
 
+  const callOf = new Map(plan?.ranking?.map((r) => [r.label, r] as const) ?? []);
   const rows = order.map((label, i) => {
     const j = latest.get(label)!;
     const s = j.state;
+    // The plan's stabilized call when there is one, the model's raw choice beside it when they differ.
+    const r = callOf.get(label);
+    const call = r?.action ?? j.judgment.action.choice;
+    const raw = r?.modelAction;
+    const action = raw ? `${escapeHtml(call)} <span class="tag">model: ${escapeHtml(raw)}</span>` : escapeHtml(call);
     const alloc = o.allocated.includes(label) ? ` <span class="tag">simulated allocation</span>` : "";
     return `<tr class="vault"><td>${i + 1}</td><th scope="row">${escapeHtml(s.vault_name)}${alloc}</th><td>${escapeHtml(s.chain ?? "ethereum")}</td>
 <td class="n">${money(s.tvl_assets)}</td><td class="n">${s.price_per_share.toFixed(4)}</td><td class="n">${pct(s.liquidity_ratio_now)}</td>
 <td class="n">${j.judgment.risk.score.toFixed(2)} <span class="lvl l${Math.round(j.judgment.risk.score)}">${level(j.judgment.risk.score)}</span></td>
-<td class="n">${pct(j.judgment.stress)}</td><td>${escapeHtml(j.judgment.action.choice)}</td><td>${riskLine(history.get(label) ?? [])}</td></tr>`;
+<td class="n">${pct(j.judgment.stress)}</td><td>${action}</td><td>${riskLine(history.get(label) ?? [])}</td></tr>`;
   });
   const gone = missing.map((l) => `<tr><td></td><th scope="row">${escapeHtml(l)}</th><td colspan="8">not judged this pass</td></tr>`);
 
